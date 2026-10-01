@@ -106,17 +106,18 @@ func mapUserNotFound(u *user.User, err error) (*user.User, error) {
 	return u, nil
 }
 
-// translateUserWriteError turns a MySQL duplicate-key error on the
-// users table into a domain-meaningful error the service layer can map to
-// a 409 Conflict, instead of leaking a raw driver error.
+// translateUserWriteError turns a MySQL duplicate-key error on the users
+// table into the matching domain sentinel (user.ErrEmailTaken /
+// user.ErrPhoneTaken) so the service layer can react to it without
+// importing this infrastructure package.
 func translateUserWriteError(err error) error {
 	var mysqlErr *mysql.MySQLError
 	if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 { // ER_DUP_ENTRY
 		switch {
 		case strings.Contains(mysqlErr.Message, "uq_users_email"):
-			return fmt.Errorf("%w: email already registered", ErrDuplicateEntry)
+			return user.ErrEmailTaken
 		case strings.Contains(mysqlErr.Message, "uq_users_phone"):
-			return fmt.Errorf("%w: phone already registered", ErrDuplicateEntry)
+			return user.ErrPhoneTaken
 		}
 		return fmt.Errorf("%w", ErrDuplicateEntry)
 	}

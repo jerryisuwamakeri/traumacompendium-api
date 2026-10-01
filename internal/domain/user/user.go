@@ -66,3 +66,21 @@ var ErrNotFound = errNotFound{}
 type errNotFound struct{}
 
 func (errNotFound) Error() string { return "user: not found" }
+
+// ErrEmailTaken and ErrPhoneTaken are returned by Repository.Create when
+// the unique constraint on that column is violated. Keeping these in the
+// domain package (rather than the mysql repository package) lets the
+// service layer react to them without importing an infrastructure
+// package.
+var (
+	ErrEmailTaken = errEmailTaken{}
+	ErrPhoneTaken = errPhoneTaken{}
+)
+
+type errEmailTaken struct{}
+
+func (errEmailTaken) Error() string { return "user: email already registered" }
+
+type errPhoneTaken struct{}
+
+func (errPhoneTaken) Error() string { return "user: phone already registered" }

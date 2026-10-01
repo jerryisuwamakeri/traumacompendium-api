@@ -72,8 +72,8 @@ func TestUserRepository_Create_DuplicateEmail(t *testing.T) {
 	u2 := newTestUser()
 	u2.Email = u1.Email
 	err := repo.Create(ctx, u2)
-	if !errors.Is(err, ErrDuplicateEntry) {
-		t.Errorf("Create() duplicate email error = %v, want %v", err, ErrDuplicateEntry)
+	if !errors.Is(err, user.ErrEmailTaken) {
+		t.Errorf("Create() duplicate email error = %v, want %v", err, user.ErrEmailTaken)
 	}
 }
 

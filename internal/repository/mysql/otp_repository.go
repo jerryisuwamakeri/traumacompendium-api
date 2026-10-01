@@ -18,11 +18,16 @@ func NewOTPRepository(db *sql.DB) *OTPRepository {
 }
 
 func (r *OTPRepository) Create(ctx context.Context, code *auth.OTPCode) error {
+	// created_at is supplied by the application (code.CreatedAt) rather
+	// than left to the column's DEFAULT CURRENT_TIMESTAMP: the resend
+	// cooldown in authservice compares against this value using the
+	// application's own clock, so app and stored time must agree exactly
+	// (and tests can control it via Service.now).
 	const q = `
-		INSERT INTO otp_codes (id, user_id, purpose, code_hash, expires_at)
-		VALUES (?, ?, ?, ?, ?)
+		INSERT INTO otp_codes (id, user_id, purpose, code_hash, expires_at, created_at)
+		VALUES (?, ?, ?, ?, ?, ?)
 	`
-	_, err := r.db.ExecContext(ctx, q, code.ID, code.UserID, code.Purpose, code.CodeHash, code.ExpiresAt)
+	_, err := r.db.ExecContext(ctx, q, code.ID, code.UserID, code.Purpose, code.CodeHash, code.ExpiresAt, code.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("mysql: create otp code: %w", err)
 	}
