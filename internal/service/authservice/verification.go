@@ -10,9 +10,13 @@ import (
 	"github.com/traumacompendium/backend/internal/pkg/hash"
 )
 
-// VerifyOTP checks a code against the active OTP for userID+purpose and,
-// on success, stamps the corresponding verified_at timestamp on the user.
-func (s *Service) VerifyOTP(ctx context.Context, userID string, purpose auth.OTPPurpose, code string) error {
+// consumeOTP validates code against the active OTP for userID+purpose —
+// checking the attempt lockout, expiry, and the code itself — and marks it
+// consumed on success. It is the shared core behind VerifyOTP (which
+// additionally stamps the user's verified_at) and ResetPassword (which
+// additionally rotates the password), so the expiry/attempt-limit rules
+// live in exactly one place.
+func (s *Service) consumeOTP(ctx context.Context, userID string, purpose auth.OTPPurpose, code string) error {
 	record, err := s.otps.FindActive(ctx, userID, purpose)
 	if err != nil {
 		if errors.Is(err, auth.ErrOTPNotFound) {
@@ -38,6 +42,16 @@ func (s *Service) VerifyOTP(ctx context.Context, userID string, purpose auth.OTP
 
 	if err := s.otps.MarkConsumed(ctx, record.ID); err != nil {
 		return apperror.NewInternal("could not complete verification").WithCause(err)
+	}
+
+	return nil
+}
+
+// VerifyOTP checks a code against the active OTP for userID+purpose and,
+// on success, stamps the corresponding verified_at timestamp on the user.
+func (s *Service) VerifyOTP(ctx context.Context, userID string, purpose auth.OTPPurpose, code string) error {
+	if err := s.consumeOTP(ctx, userID, purpose, code); err != nil {
+		return err
 	}
 
 	u, err := s.users.FindByID(ctx, userID)
