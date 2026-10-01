@@ -28,18 +28,18 @@ const (
 // reliably for both learning-progress notifications and (in a later
 // phase) SafeReach alerts.
 type User struct {
-	ID               string
-	FullName         string
-	Email            string
-	EmailVerifiedAt  *time.Time
-	Phone            string
-	PhoneVerifiedAt  *time.Time
-	PasswordHash     string
-	Role             Role
-	Status           Status
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
-	DeletedAt        *time.Time
+	ID              string
+	FullName        string
+	Email           string
+	EmailVerifiedAt *time.Time
+	Phone           string
+	PhoneVerifiedAt *time.Time
+	PasswordHash    string
+	Role            Role
+	Status          Status
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	DeletedAt       *time.Time
 }
 
 func (u *User) IsEmailVerified() bool { return u.EmailVerifiedAt != nil }

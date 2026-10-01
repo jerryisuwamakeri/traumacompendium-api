@@ -92,8 +92,8 @@ func (f *fakeUserRepo) FindByPhone(_ context.Context, phone string) (*user.User,
 
 // fakeOTPRepo is a minimal in-memory auth.OTPRepository.
 type fakeOTPRepo struct {
-	mu    sync.Mutex
-	byID  map[string]*auth.OTPCode
+	mu   sync.Mutex
+	byID map[string]*auth.OTPCode
 }
 
 func newFakeOTPRepo() *fakeOTPRepo {

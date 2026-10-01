@@ -89,9 +89,9 @@ type OTPConfig struct {
 // whether the client performs real HTTP calls against Termii's API
 // (production) or simply logs what would have been sent (sandbox).
 type TermiiConfig struct {
-	Mode    Mode
-	BaseURL string
-	APIKey  string
+	Mode     Mode
+	BaseURL  string
+	APIKey   string
 	SenderID string
 }
 
@@ -108,12 +108,12 @@ type SMTPConfig struct {
 }
 
 type HTTPConfig struct {
-	AllowedOrigins          []string
-	RateLimitPerMinute      int
-	AuthRateLimitPerMinute  int
-	ReadTimeout             time.Duration
-	WriteTimeout            time.Duration
-	ShutdownGracePeriod     time.Duration
+	AllowedOrigins         []string
+	RateLimitPerMinute     int
+	AuthRateLimitPerMinute int
+	ReadTimeout            time.Duration
+	WriteTimeout           time.Duration
+	ShutdownGracePeriod    time.Duration
 }
 
 // Load reads configuration from the process environment. If a .env file is

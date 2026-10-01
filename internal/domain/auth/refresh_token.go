@@ -22,7 +22,7 @@ type RefreshToken struct {
 	CreatedAt time.Time
 }
 
-func (r *RefreshToken) IsRevoked() bool           { return r.RevokedAt != nil }
+func (r *RefreshToken) IsRevoked() bool              { return r.RevokedAt != nil }
 func (r *RefreshToken) IsExpired(now time.Time) bool { return now.After(r.ExpiresAt) }
 func (r *RefreshToken) IsUsable(now time.Time) bool  { return !r.IsRevoked() && !r.IsExpired(now) }
 

@@ -15,15 +15,15 @@ import (
 type Code string
 
 const (
-	CodeValidation        Code = "validation_error"
-	CodeBadRequest        Code = "bad_request"
-	CodeUnauthorized      Code = "unauthorized"
-	CodeForbidden         Code = "forbidden"
-	CodeNotFound          Code = "not_found"
-	CodeConflict          Code = "conflict"
-	CodeTooManyRequests   Code = "too_many_requests"
-	CodeInternal          Code = "internal_error"
-	CodeUnprocessable     Code = "unprocessable_entity"
+	CodeValidation      Code = "validation_error"
+	CodeBadRequest      Code = "bad_request"
+	CodeUnauthorized    Code = "unauthorized"
+	CodeForbidden       Code = "forbidden"
+	CodeNotFound        Code = "not_found"
+	CodeConflict        Code = "conflict"
+	CodeTooManyRequests Code = "too_many_requests"
+	CodeInternal        Code = "internal_error"
+	CodeUnprocessable   Code = "unprocessable_entity"
 )
 
 // Error is an application-level error carrying everything the HTTP layer

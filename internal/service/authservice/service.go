@@ -67,10 +67,10 @@ func New(
 // TokenPair is what every flow that establishes or refreshes a session
 // (login, refresh) returns to the caller.
 type TokenPair struct {
-	AccessToken       string
-	AccessExpiresAt   time.Time
-	RefreshToken      string
-	RefreshExpiresAt  time.Time
+	AccessToken      string
+	AccessExpiresAt  time.Time
+	RefreshToken     string
+	RefreshExpiresAt time.Time
 }
 
 // SessionMetadata identifies the client issuing a login/refresh request,

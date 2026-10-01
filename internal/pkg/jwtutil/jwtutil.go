@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	ErrInvalidToken = errors.New("jwtutil: invalid or expired token")
+	ErrInvalidToken  = errors.New("jwtutil: invalid or expired token")
 	ErrWrongTokenUse = errors.New("jwtutil: token used for the wrong purpose")
 )
 

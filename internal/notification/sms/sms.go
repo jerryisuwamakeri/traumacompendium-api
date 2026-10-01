@@ -85,8 +85,8 @@ type termiiSendRequest struct {
 }
 
 type termiiSendResponse struct {
-	MessageID string `json:"message_id"`
-	Message   string `json:"message"`
+	MessageID string  `json:"message_id"`
+	Message   string  `json:"message"`
 	Balance   float64 `json:"balance"`
 	User      string  `json:"user"`
 }
