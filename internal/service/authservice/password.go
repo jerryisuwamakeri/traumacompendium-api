@@ -61,6 +61,7 @@ func (s *Service) ResetPassword(ctx context.Context, in ResetPasswordInput) erro
 		return apperror.NewInternal("could not reset password").WithCause(err)
 	}
 	u.PasswordHash = newHash
+	u.UpdatedAt = s.now()
 
 	if err := s.users.Update(ctx, u); err != nil {
 		return apperror.NewInternal("could not reset password").WithCause(err)

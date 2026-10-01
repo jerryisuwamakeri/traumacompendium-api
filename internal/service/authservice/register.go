@@ -35,6 +35,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*user.User, e
 		return nil, apperror.NewInternal("could not process password").WithCause(err)
 	}
 
+	now := s.now()
 	u := &user.User{
 		ID:           uuid.NewString(),
 		FullName:     strings.TrimSpace(in.FullName),
@@ -43,6 +44,8 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*user.User, e
 		PasswordHash: passwordHash,
 		Role:         user.RoleUser,
 		Status:       user.StatusActive,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 
 	if err := s.users.Create(ctx, u); err != nil {

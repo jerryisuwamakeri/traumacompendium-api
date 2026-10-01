@@ -42,12 +42,20 @@ func scanUser(row interface{ Scan(dest ...any) error }) (*user.User, error) {
 	return &u, nil
 }
 
+// Create and Update both persist u.CreatedAt/u.UpdatedAt as supplied by
+// the caller rather than leaving them to the columns' DB-side defaults
+// (DEFAULT CURRENT_TIMESTAMP / ON UPDATE CURRENT_TIMESTAMP): the service
+// layer sets these from its own clock (Service.now) before calling in, so
+// the struct the caller already holds stays accurate without needing a
+// read-back, and the value is deterministic in tests.
 func (r *UserRepository) Create(ctx context.Context, u *user.User) error {
 	const q = `
-		INSERT INTO users (id, full_name, email, phone, password_hash, role, status)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO users (id, full_name, email, phone, password_hash, role, status, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	_, err := r.db.ExecContext(ctx, q, u.ID, u.FullName, u.Email, u.Phone, u.PasswordHash, u.Role, u.Status)
+	_, err := r.db.ExecContext(ctx, q,
+		u.ID, u.FullName, u.Email, u.Phone, u.PasswordHash, u.Role, u.Status, u.CreatedAt, u.UpdatedAt,
+	)
 	if err != nil {
 		return translateUserWriteError(err)
 	}
@@ -58,12 +66,12 @@ func (r *UserRepository) Update(ctx context.Context, u *user.User) error {
 	const q = `
 		UPDATE users SET
 			full_name = ?, email = ?, email_verified_at = ?, phone = ?, phone_verified_at = ?,
-			password_hash = ?, role = ?, status = ?
+			password_hash = ?, role = ?, status = ?, updated_at = ?
 		WHERE id = ? AND deleted_at IS NULL
 	`
 	res, err := r.db.ExecContext(ctx, q,
 		u.FullName, u.Email, u.EmailVerifiedAt, u.Phone, u.PhoneVerifiedAt,
-		u.PasswordHash, u.Role, u.Status, u.ID,
+		u.PasswordHash, u.Role, u.Status, u.UpdatedAt, u.ID,
 	)
 	if err != nil {
 		return translateUserWriteError(err)

@@ -66,6 +66,7 @@ func (s *Service) VerifyOTP(ctx context.Context, userID string, purpose auth.OTP
 	case auth.OTPPurposePhoneVerification:
 		u.PhoneVerifiedAt = &now
 	}
+	u.UpdatedAt = now
 
 	if err := s.users.Update(ctx, u); err != nil {
 		return apperror.NewInternal("could not complete verification").WithCause(err)

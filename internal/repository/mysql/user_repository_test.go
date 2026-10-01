@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -13,6 +14,7 @@ import (
 
 func newTestUser() *user.User {
 	suffix := uuid.NewString()[:8]
+	now := time.Now().UTC().Truncate(time.Second)
 	return &user.User{
 		ID:           uuid.NewString(),
 		FullName:     "Jane Doe",
@@ -21,6 +23,8 @@ func newTestUser() *user.User {
 		PasswordHash: "bcrypt-hash-placeholder",
 		Role:         user.RoleUser,
 		Status:       user.StatusActive,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 }
 

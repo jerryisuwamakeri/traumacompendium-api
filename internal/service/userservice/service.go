@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/traumacompendium/backend/internal/domain/user"
 	"github.com/traumacompendium/backend/internal/pkg/apperror"
@@ -51,6 +52,7 @@ func (s *Service) UpdateProfile(ctx context.Context, userID string, in UpdatePro
 	}
 
 	u.FullName = strings.TrimSpace(in.FullName)
+	u.UpdatedAt = time.Now()
 
 	if err := s.users.Update(ctx, u); err != nil {
 		return nil, apperror.NewInternal("could not update profile").WithCause(err)
