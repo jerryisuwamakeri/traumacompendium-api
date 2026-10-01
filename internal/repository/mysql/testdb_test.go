@@ -6,10 +6,13 @@ import (
 	"io/fs"
 	"os"
 	"testing"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
+	"github.com/traumacompendium/backend/internal/domain/user"
 	"github.com/traumacompendium/backend/internal/platform/database"
 	"github.com/traumacompendium/backend/migrations"
 )
@@ -52,6 +55,7 @@ func truncateAll(t *testing.T, db *sql.DB) {
 		"SET FOREIGN_KEY_CHECKS = 0",
 		"TRUNCATE TABLE refresh_tokens",
 		"TRUNCATE TABLE otp_codes",
+		"TRUNCATE TABLE journal_entries",
 		"TRUNCATE TABLE users",
 		"SET FOREIGN_KEY_CHECKS = 1",
 	} {
@@ -59,4 +63,34 @@ func truncateAll(t *testing.T, db *sql.DB) {
 			t.Fatalf("truncate: %s: %v", stmt, err)
 		}
 	}
+}
+
+// seedTestUser inserts a minimal, valid user row (via UserRepository, so
+// it stays in sync with that table's constraints) and returns its ID —
+// used by other repositories' tests whose tables carry a foreign key to
+// users but have no reason to exercise UserRepository themselves.
+func seedTestUser(t *testing.T, db *sql.DB) string {
+	t.Helper()
+
+	id := uuid.NewString()
+	suffix := id[:8]
+	now := time.Now().UTC().Truncate(time.Second)
+
+	u := &user.User{
+		ID:           id,
+		FullName:     "Test User",
+		Email:        "test+" + suffix + "@example.com",
+		Phone:        "+23480" + suffix,
+		PasswordHash: "bcrypt-hash-placeholder",
+		Role:         user.RoleUser,
+		Status:       user.StatusActive,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+
+	if err := NewUserRepository(db).Create(context.Background(), u); err != nil {
+		t.Fatalf("seedTestUser: create: %v", err)
+	}
+
+	return id
 }
