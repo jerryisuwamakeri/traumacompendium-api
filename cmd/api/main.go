@@ -27,6 +27,7 @@ import (
 	"github.com/traumacompendium/backend/internal/platform/logger"
 	"github.com/traumacompendium/backend/internal/repository/mysql"
 	"github.com/traumacompendium/backend/internal/service/authservice"
+	"github.com/traumacompendium/backend/internal/service/journalservice"
 	"github.com/traumacompendium/backend/internal/service/userservice"
 	"github.com/traumacompendium/backend/migrations"
 )
@@ -79,6 +80,7 @@ func buildServer(cfg *config.Config, log zerolog.Logger, db *sql.DB, redisClient
 	userRepo := mysql.NewUserRepository(db)
 	otpRepo := mysql.NewOTPRepository(db)
 	refreshTokenRepo := mysql.NewRefreshTokenRepository(db)
+	journalRepo := mysql.NewJournalRepository(db)
 
 	jwtManager := jwtutil.NewManager(cfg.JWT)
 	emailSender := email.New(cfg.SMTP, log)
@@ -86,15 +88,17 @@ func buildServer(cfg *config.Config, log zerolog.Logger, db *sql.DB, redisClient
 
 	authSvc := authservice.New(userRepo, otpRepo, refreshTokenRepo, jwtManager, emailSender, smsSender, cfg.OTP, log)
 	userSvc := userservice.New(userRepo)
+	journalSvc := journalservice.New(journalRepo)
 
 	deps := router.Dependencies{
-		Config: cfg,
-		Logger: log,
-		Redis:  redisClient,
-		JWT:    jwtManager,
-		Auth:   handler.NewAuthHandler(authSvc),
-		User:   handler.NewUserHandler(userSvc),
-		Health: handler.NewHealthHandler(db, redisClient),
+		Config:  cfg,
+		Logger:  log,
+		Redis:   redisClient,
+		JWT:     jwtManager,
+		Auth:    handler.NewAuthHandler(authSvc),
+		User:    handler.NewUserHandler(userSvc),
+		Journal: handler.NewJournalHandler(journalSvc),
+		Health:  handler.NewHealthHandler(db, redisClient),
 	}
 
 	return &nethttp.Server{

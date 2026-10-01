@@ -22,13 +22,14 @@ import (
 // Dependencies bundles everything the router needs to wire routes to
 // handlers and attach the right middleware to each group.
 type Dependencies struct {
-	Config *config.Config
-	Logger zerolog.Logger
-	Redis  *redis.Client
-	JWT    *jwtutil.Manager
-	Auth   *handler.AuthHandler
-	User   *handler.UserHandler
-	Health *handler.HealthHandler
+	Config  *config.Config
+	Logger  zerolog.Logger
+	Redis   *redis.Client
+	JWT     *jwtutil.Manager
+	Auth    *handler.AuthHandler
+	User    *handler.UserHandler
+	Journal *handler.JournalHandler
+	Health  *handler.HealthHandler
 }
 
 func New(deps Dependencies) *gin.Engine {
@@ -52,6 +53,7 @@ func New(deps Dependencies) *gin.Engine {
 
 	registerAuthRoutes(api, deps)
 	registerUserRoutes(api, deps)
+	registerJournalRoutes(api, deps)
 
 	return r
 }
@@ -80,4 +82,16 @@ func registerUserRoutes(api *gin.RouterGroup, deps Dependencies) {
 
 	users.GET("/me", deps.User.Me)
 	users.PATCH("/me", deps.User.UpdateMe)
+}
+
+func registerJournalRoutes(api *gin.RouterGroup, deps Dependencies) {
+	journal := api.Group("/journal")
+	journal.Use(middleware.RequireAuth(deps.JWT))
+
+	journal.POST("/entries", deps.Journal.Create)
+	journal.GET("/entries", deps.Journal.List)
+	journal.GET("/entries/:id", deps.Journal.Get)
+	journal.PATCH("/entries/:id", deps.Journal.Update)
+	journal.DELETE("/entries/:id", deps.Journal.Delete)
+	journal.GET("/export", deps.Journal.Export)
 }
