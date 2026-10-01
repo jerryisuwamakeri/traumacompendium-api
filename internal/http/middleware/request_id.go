@@ -12,7 +12,7 @@ const (
 	// HeaderRequestID is both the inbound header this middleware honors
 	// (so a client or upstream proxy can supply its own trace ID) and the
 	// outbound header it always sets.
-	HeaderRequestID = "X-Request-ID"
+	HeaderRequestID     = "X-Request-ID"
 	contextKeyRequestID = "request_id"
 )
 
