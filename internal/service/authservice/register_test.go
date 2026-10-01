@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/traumacompendium/backend/internal/pkg/apperror"
+	"github.com/traumacompendium/backend/internal/testsupport/fakes"
 )
 
 func validRegisterInput() RegisterInput {
@@ -35,18 +36,18 @@ func TestRegister_CreatesUnverifiedUserAndSendsBothOTPs(t *testing.T) {
 		t.Error("PasswordHash should be set and must not be the plaintext password")
 	}
 
-	if len(h.emails.sent) != 1 {
-		t.Fatalf("expected 1 email sent, got %d", len(h.emails.sent))
+	if len(h.emails.Sent) != 1 {
+		t.Fatalf("expected 1 email sent, got %d", len(h.emails.Sent))
 	}
-	if h.emails.last().To != "jane@example.com" {
-		t.Errorf("email sent to %q, want %q", h.emails.last().To, "jane@example.com")
+	if h.emails.Last().To != "jane@example.com" {
+		t.Errorf("email sent to %q, want %q", h.emails.Last().To, "jane@example.com")
 	}
 
-	if len(h.smses.sent) != 1 {
-		t.Fatalf("expected 1 sms sent, got %d", len(h.smses.sent))
+	if len(h.smses.Sent) != 1 {
+		t.Fatalf("expected 1 sms sent, got %d", len(h.smses.Sent))
 	}
-	if h.smses.last().To != "+2348012345678" {
-		t.Errorf("sms sent to %q, want %q", h.smses.last().To, "+2348012345678")
+	if h.smses.Last().To != "+2348012345678" {
+		t.Errorf("sms sent to %q, want %q", h.smses.Last().To, "+2348012345678")
 	}
 }
 
@@ -94,7 +95,7 @@ func TestRegister_DuplicatePhone_ReturnsConflict(t *testing.T) {
 
 func TestRegister_OTPDeliveryFailureDoesNotFailRegistration(t *testing.T) {
 	h := newTestHarness()
-	h.service.emailSender = failingEmailSender{}
+	h.service.emailSender = fakes.FailingEmailSender{}
 
 	u, err := h.service.Register(context.Background(), validRegisterInput())
 	if err != nil {

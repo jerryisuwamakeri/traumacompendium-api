@@ -7,25 +7,26 @@ import (
 
 	"github.com/traumacompendium/backend/internal/config"
 	"github.com/traumacompendium/backend/internal/pkg/jwtutil"
+	"github.com/traumacompendium/backend/internal/testsupport/fakes"
 )
 
 // testHarness bundles a Service with its fakes so each test can assert
 // against the fakes directly (e.g. "was an email actually sent?").
 type testHarness struct {
 	service *Service
-	users   *fakeUserRepo
-	otps    *fakeOTPRepo
-	tokens  *fakeRefreshTokenRepo
-	emails  *fakeEmailSender
-	smses   *fakeSMSSender
+	users   *fakes.UserRepo
+	otps    *fakes.OTPRepo
+	tokens  *fakes.RefreshTokenRepo
+	emails  *fakes.EmailSender
+	smses   *fakes.SMSSender
 }
 
 func newTestHarness() *testHarness {
-	users := newFakeUserRepo()
-	otps := newFakeOTPRepo()
-	tokens := newFakeRefreshTokenRepo()
-	emails := &fakeEmailSender{}
-	smses := &fakeSMSSender{}
+	users := fakes.NewUserRepo()
+	otps := fakes.NewOTPRepo()
+	tokens := fakes.NewRefreshTokenRepo()
+	emails := &fakes.EmailSender{}
+	smses := &fakes.SMSSender{}
 
 	jwtManager := jwtutil.NewManager(config.JWTConfig{
 		AccessSecret:  "test-access-secret",

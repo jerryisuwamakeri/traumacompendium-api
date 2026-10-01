@@ -9,7 +9,7 @@ import (
 )
 
 func lastPasswordResetCode(h *testHarness) string {
-	body := h.emails.last().Body
+	body := h.emails.Last().Body
 	const marker = "code is "
 	i := indexOf(body, marker)
 	return body[i+len(marker) : i+len(marker)+6]
@@ -24,8 +24,8 @@ func TestForgotPassword_ExistingAccount_SendsEmail(t *testing.T) {
 	}
 
 	// 1 from registration + 1 from the reset request
-	if len(h.emails.sent) != 2 {
-		t.Fatalf("expected 2 emails sent, got %d", len(h.emails.sent))
+	if len(h.emails.Sent) != 2 {
+		t.Fatalf("expected 2 emails sent, got %d", len(h.emails.Sent))
 	}
 }
 
@@ -36,8 +36,8 @@ func TestForgotPassword_UnknownEmail_StillReturnsNil(t *testing.T) {
 	if err != nil {
 		t.Errorf("ForgotPassword(unknown email) error = %v, want nil (must not leak existence)", err)
 	}
-	if len(h.emails.sent) != 0 {
-		t.Errorf("expected no email sent for unknown address, got %d", len(h.emails.sent))
+	if len(h.emails.Sent) != 0 {
+		t.Errorf("expected no email sent for unknown address, got %d", len(h.emails.Sent))
 	}
 }
 

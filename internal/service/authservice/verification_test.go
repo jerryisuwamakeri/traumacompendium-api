@@ -24,7 +24,7 @@ func registerTestUser(t *testing.T, h *testHarness) string {
 // would receive, so this mirrors what a user would read off their phone
 // or inbox in sandbox mode.
 func lastEmailOTPCode(h *testHarness) string {
-	body := h.emails.last().Body
+	body := h.emails.Last().Body
 	// "Your verification code is 123456. It expires in ..."
 	const marker = "code is "
 	i := indexOf(body, marker)
@@ -145,8 +145,8 @@ func TestResendOTP_AfterCooldown_SendsNewCode(t *testing.T) {
 		t.Fatalf("ResendOTP() error = %v", err)
 	}
 
-	if len(h.emails.sent) != 2 {
-		t.Fatalf("expected 2 emails sent (register + resend), got %d", len(h.emails.sent))
+	if len(h.emails.Sent) != 2 {
+		t.Fatalf("expected 2 emails sent (register + resend), got %d", len(h.emails.Sent))
 	}
 }
 
