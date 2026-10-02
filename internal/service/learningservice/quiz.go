@@ -11,8 +11,8 @@ import (
 // IsCorrect populated) — it is the HTTP DTO layer's responsibility to
 // strip IsCorrect before this reaches a client taking the quiz. See
 // learning.Option's doc comment.
-func (s *Service) GetQuiz(ctx context.Context, lessonID string) (learning.Quiz, []learning.Question, error) {
-	quiz, questions, err := s.content.FindQuizByLesson(ctx, lessonID)
+func (s *Service) GetQuiz(ctx context.Context, lessonID string, locale learning.Locale) (learning.Quiz, []learning.Question, error) {
+	quiz, questions, err := s.content.FindQuizByLesson(ctx, lessonID, resolveLocale(locale))
 	if err != nil {
 		return learning.Quiz{}, nil, mapContentNotFound(err)
 	}
@@ -31,9 +31,12 @@ type QuizResult struct {
 // SubmitQuiz scores answers (question ID -> chosen option ID) against
 // the correct options on file. An unanswered or invalid question ID in
 // answers simply counts as incorrect, rather than erroring — a partial
-// submission is still meaningfully scorable.
+// submission is still meaningfully scorable. Scoring matches on option
+// ID, which is locale-independent (only the display text is translated),
+// so this always reads the quiz in the default locale regardless of what
+// language the client took it in.
 func (s *Service) SubmitQuiz(ctx context.Context, lessonID string, answers map[string]string) (QuizResult, error) {
-	_, questions, err := s.content.FindQuizByLesson(ctx, lessonID)
+	_, questions, err := s.content.FindQuizByLesson(ctx, lessonID, learning.DefaultLocale)
 	if err != nil {
 		return QuizResult{}, mapContentNotFound(err)
 	}

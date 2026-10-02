@@ -9,7 +9,7 @@ func TestCompleteLesson_FirstOfTwo_LevelNotYetComplete_NoBadge(t *testing.T) {
 	svc, content, _ := newTestService()
 	_, lesson1ID, _, _, _, _, _ := seedTwoLessonLevel(content)
 
-	result, err := svc.CompleteLesson(context.Background(), "user-1", lesson1ID)
+	result, err := svc.CompleteLesson(context.Background(), "user-1", lesson1ID, "")
 	if err != nil {
 		t.Fatalf("CompleteLesson() error = %v", err)
 	}
@@ -26,11 +26,11 @@ func TestCompleteLesson_LastOfLevel_AwardsBadge(t *testing.T) {
 	_, lesson1ID, lesson2ID, _, _, _, _ := seedTwoLessonLevel(content)
 	ctx := context.Background()
 
-	if _, err := svc.CompleteLesson(ctx, "user-1", lesson1ID); err != nil {
+	if _, err := svc.CompleteLesson(ctx, "user-1", lesson1ID, ""); err != nil {
 		t.Fatalf("CompleteLesson(lesson1) error = %v", err)
 	}
 
-	result, err := svc.CompleteLesson(ctx, "user-1", lesson2ID)
+	result, err := svc.CompleteLesson(ctx, "user-1", lesson2ID, "")
 	if err != nil {
 		t.Fatalf("CompleteLesson(lesson2) error = %v", err)
 	}
@@ -53,16 +53,16 @@ func TestCompleteLesson_ReCompletingAfterBadgeEarned_DoesNotReportBadgeAgain(t *
 	_, lesson1ID, lesson2ID, _, _, _, _ := seedTwoLessonLevel(content)
 	ctx := context.Background()
 
-	if _, err := svc.CompleteLesson(ctx, "user-1", lesson1ID); err != nil {
+	if _, err := svc.CompleteLesson(ctx, "user-1", lesson1ID, ""); err != nil {
 		t.Fatalf("CompleteLesson(lesson1) error = %v", err)
 	}
-	if _, err := svc.CompleteLesson(ctx, "user-1", lesson2ID); err != nil {
+	if _, err := svc.CompleteLesson(ctx, "user-1", lesson2ID, ""); err != nil {
 		t.Fatalf("CompleteLesson(lesson2) error = %v", err)
 	}
 
 	// Re-complete lesson2 (level already fully done and badge already
 	// awarded).
-	result, err := svc.CompleteLesson(ctx, "user-1", lesson2ID)
+	result, err := svc.CompleteLesson(ctx, "user-1", lesson2ID, "")
 	if err != nil {
 		t.Fatalf("CompleteLesson(lesson2, again) error = %v", err)
 	}
@@ -79,14 +79,14 @@ func TestCompleteLesson_DoesNotAwardBadgeToOtherUsers(t *testing.T) {
 	_, lesson1ID, lesson2ID, _, _, _, _ := seedTwoLessonLevel(content)
 	ctx := context.Background()
 
-	if _, err := svc.CompleteLesson(ctx, "user-1", lesson1ID); err != nil {
+	if _, err := svc.CompleteLesson(ctx, "user-1", lesson1ID, ""); err != nil {
 		t.Fatalf("CompleteLesson() error = %v", err)
 	}
-	if _, err := svc.CompleteLesson(ctx, "user-1", lesson2ID); err != nil {
+	if _, err := svc.CompleteLesson(ctx, "user-1", lesson2ID, ""); err != nil {
 		t.Fatalf("CompleteLesson() error = %v", err)
 	}
 
-	badges, err := svc.ListUserBadges(ctx, "user-2")
+	badges, err := svc.ListUserBadges(ctx, "user-2", "")
 	if err != nil {
 		t.Fatalf("ListUserBadges() error = %v", err)
 	}
@@ -100,11 +100,11 @@ func TestGetProgress_ReflectsPartialAndFullCompletion(t *testing.T) {
 	_, lesson1ID, _, _, _, _, _ := seedTwoLessonLevel(content)
 	ctx := context.Background()
 
-	if _, err := svc.CompleteLesson(ctx, "user-1", lesson1ID); err != nil {
+	if _, err := svc.CompleteLesson(ctx, "user-1", lesson1ID, ""); err != nil {
 		t.Fatalf("CompleteLesson() error = %v", err)
 	}
 
-	progress, err := svc.GetProgress(ctx, "user-1")
+	progress, err := svc.GetProgress(ctx, "user-1", "")
 	if err != nil {
 		t.Fatalf("GetProgress() error = %v", err)
 	}
@@ -127,14 +127,14 @@ func TestListUserBadges_ReturnsEarnedBadges(t *testing.T) {
 	_, lesson1ID, lesson2ID, _, _, _, _ := seedTwoLessonLevel(content)
 	ctx := context.Background()
 
-	if _, err := svc.CompleteLesson(ctx, "user-1", lesson1ID); err != nil {
+	if _, err := svc.CompleteLesson(ctx, "user-1", lesson1ID, ""); err != nil {
 		t.Fatalf("CompleteLesson() error = %v", err)
 	}
-	if _, err := svc.CompleteLesson(ctx, "user-1", lesson2ID); err != nil {
+	if _, err := svc.CompleteLesson(ctx, "user-1", lesson2ID, ""); err != nil {
 		t.Fatalf("CompleteLesson() error = %v", err)
 	}
 
-	badges, err := svc.ListUserBadges(ctx, "user-1")
+	badges, err := svc.ListUserBadges(ctx, "user-1", "")
 	if err != nil {
 		t.Fatalf("ListUserBadges() error = %v", err)
 	}

@@ -21,6 +21,7 @@ import (
 	"github.com/traumacompendium/backend/internal/http/router"
 	"github.com/traumacompendium/backend/internal/notification/email"
 	"github.com/traumacompendium/backend/internal/notification/sms"
+	"github.com/traumacompendium/backend/internal/notification/tts"
 	"github.com/traumacompendium/backend/internal/pkg/jwtutil"
 	"github.com/traumacompendium/backend/internal/platform/cache"
 	"github.com/traumacompendium/backend/internal/platform/database"
@@ -86,16 +87,18 @@ func buildServer(cfg *config.Config, log zerolog.Logger, db *sql.DB, redisClient
 	moodRepo := mysql.NewMoodRepository(db)
 	learningContentRepo := mysql.NewLearningContentRepository(db)
 	learningProgressRepo := mysql.NewLearningProgressRepository(db)
+	learningAudioRepo := mysql.NewLearningAudioRepository(db)
 
 	jwtManager := jwtutil.NewManager(cfg.JWT)
 	emailSender := email.New(cfg.SMTP, log)
 	smsSender := sms.New(cfg.Termii, log)
+	ttsSynth := tts.New(cfg.TTS, log)
 
 	authSvc := authservice.New(userRepo, otpRepo, refreshTokenRepo, jwtManager, emailSender, smsSender, cfg.OTP, log)
 	userSvc := userservice.New(userRepo)
 	journalSvc := journalservice.New(journalRepo)
 	moodSvc := moodservice.New(moodRepo)
-	learningSvc := learningservice.New(learningContentRepo, learningProgressRepo)
+	learningSvc := learningservice.New(learningContentRepo, learningProgressRepo, learningAudioRepo, ttsSynth)
 
 	deps := router.Dependencies{
 		Config:   cfg,

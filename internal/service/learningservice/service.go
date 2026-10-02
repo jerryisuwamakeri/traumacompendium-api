@@ -9,45 +9,67 @@ import (
 	"time"
 
 	"github.com/traumacompendium/backend/internal/domain/learning"
+	"github.com/traumacompendium/backend/internal/notification/tts"
 	"github.com/traumacompendium/backend/internal/pkg/apperror"
 )
 
 type Service struct {
 	content  learning.ContentRepository
 	progress learning.ProgressRepository
+	audio    learning.AudioRepository
+	synth    tts.Synthesizer
 	now      func() time.Time
 }
 
-func New(content learning.ContentRepository, progress learning.ProgressRepository) *Service {
-	return &Service{content: content, progress: progress, now: time.Now}
+func New(
+	content learning.ContentRepository,
+	progress learning.ProgressRepository,
+	audio learning.AudioRepository,
+	synth tts.Synthesizer,
+) *Service {
+	return &Service{content: content, progress: progress, audio: audio, synth: synth, now: time.Now}
 }
 
-func (s *Service) ListLevels(ctx context.Context) ([]learning.Level, error) {
-	levels, err := s.content.ListLevels(ctx)
+func (s *Service) ListLevels(ctx context.Context, locale learning.Locale) ([]learning.Level, error) {
+	levels, err := s.content.ListLevels(ctx, resolveLocale(locale))
 	if err != nil {
 		return nil, apperror.NewInternal("could not list levels").WithCause(err)
 	}
 	return levels, nil
 }
 
-func (s *Service) ListLessons(ctx context.Context, levelID string) ([]learning.Lesson, error) {
-	if _, err := s.content.FindLevel(ctx, levelID); err != nil {
+func (s *Service) ListLessons(ctx context.Context, levelID string, locale learning.Locale) ([]learning.Lesson, error) {
+	locale = resolveLocale(locale)
+
+	if _, err := s.content.FindLevel(ctx, levelID, locale); err != nil {
 		return nil, mapContentNotFound(err)
 	}
 
-	lessons, err := s.content.ListLessonsByLevel(ctx, levelID)
+	lessons, err := s.content.ListLessonsByLevel(ctx, levelID, locale)
 	if err != nil {
 		return nil, apperror.NewInternal("could not list lessons").WithCause(err)
 	}
 	return lessons, nil
 }
 
-func (s *Service) GetLesson(ctx context.Context, lessonID string) (learning.Lesson, error) {
-	lesson, err := s.content.FindLesson(ctx, lessonID)
+func (s *Service) GetLesson(ctx context.Context, lessonID string, locale learning.Locale) (learning.Lesson, error) {
+	lesson, err := s.content.FindLesson(ctx, lessonID, resolveLocale(locale))
 	if err != nil {
 		return learning.Lesson{}, mapContentNotFound(err)
 	}
 	return lesson, nil
+}
+
+// resolveLocale is the service layer's own safety net: handlers are
+// expected to have already validated/defaulted the locale (see
+// internal/http.ResolveLocale), but any other caller — a test, a future
+// background job — gets the same "unknown or empty locale falls back to
+// English" behavior rather than passing something meaningless to SQL.
+func resolveLocale(locale learning.Locale) learning.Locale {
+	if learning.IsSupportedLocale(locale) {
+		return locale
+	}
+	return learning.DefaultLocale
 }
 
 func mapContentNotFound(err error) error {

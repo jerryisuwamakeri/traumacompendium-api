@@ -37,7 +37,7 @@ func newTestLearningRouter() (*gin.Engine, *jwtutil.Manager, string, string) {
 	}
 	content.Badges[levelID] = learning.Badge{ID: "badge-1", LevelID: levelID, Name: "Beginner"}
 
-	h := NewLearningHandler(learningservice.New(content, progress))
+	h := NewLearningHandler(learningservice.New(content, progress, fakes.NewLearningAudioRepo(), &fakes.TTSSynthesizer{}))
 
 	jwt := jwtutil.NewManager(config.JWTConfig{
 		AccessSecret:  "test-access-secret",

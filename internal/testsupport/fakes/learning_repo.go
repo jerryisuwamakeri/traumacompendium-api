@@ -14,6 +14,14 @@ import (
 // the exported fields — there is no production write path for content,
 // so the fake exposes direct field access instead of Create methods
 // mirroring a nonexistent interface.
+//
+// It ignores the locale argument and always returns the seeded content
+// as-is: the real locale-fallback behavior (COALESCE to English when no
+// translation row exists) is a SQL concern tested directly against MySQL
+// in internal/repository/mysql's learning_repository_test.go, not
+// something worth re-simulating here. Service-level tests only need to
+// confirm the requested locale is threaded through, which they do by
+// asserting on what this fake received.
 type LearningContentRepo struct {
 	mu        sync.Mutex
 	Levels    map[string]learning.Level
@@ -33,7 +41,7 @@ func NewLearningContentRepo() *LearningContentRepo {
 	}
 }
 
-func (f *LearningContentRepo) ListLevels(context.Context) ([]learning.Level, error) {
+func (f *LearningContentRepo) ListLevels(_ context.Context, _ learning.Locale) ([]learning.Level, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	out := make([]learning.Level, 0, len(f.Levels))
@@ -44,7 +52,7 @@ func (f *LearningContentRepo) ListLevels(context.Context) ([]learning.Level, err
 	return out, nil
 }
 
-func (f *LearningContentRepo) FindLevel(_ context.Context, id string) (learning.Level, error) {
+func (f *LearningContentRepo) FindLevel(_ context.Context, id string, _ learning.Locale) (learning.Level, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	l, ok := f.Levels[id]
@@ -54,7 +62,7 @@ func (f *LearningContentRepo) FindLevel(_ context.Context, id string) (learning.
 	return l, nil
 }
 
-func (f *LearningContentRepo) ListLessonsByLevel(_ context.Context, levelID string) ([]learning.Lesson, error) {
+func (f *LearningContentRepo) ListLessonsByLevel(_ context.Context, levelID string, _ learning.Locale) ([]learning.Lesson, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	var out []learning.Lesson
@@ -67,7 +75,7 @@ func (f *LearningContentRepo) ListLessonsByLevel(_ context.Context, levelID stri
 	return out, nil
 }
 
-func (f *LearningContentRepo) FindLesson(_ context.Context, id string) (learning.Lesson, error) {
+func (f *LearningContentRepo) FindLesson(_ context.Context, id string, _ learning.Locale) (learning.Lesson, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	l, ok := f.Lessons[id]
@@ -77,7 +85,7 @@ func (f *LearningContentRepo) FindLesson(_ context.Context, id string) (learning
 	return l, nil
 }
 
-func (f *LearningContentRepo) FindQuizByLesson(_ context.Context, lessonID string) (learning.Quiz, []learning.Question, error) {
+func (f *LearningContentRepo) FindQuizByLesson(_ context.Context, lessonID string, _ learning.Locale) (learning.Quiz, []learning.Question, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	quiz, ok := f.Quizzes[lessonID]
@@ -87,7 +95,7 @@ func (f *LearningContentRepo) FindQuizByLesson(_ context.Context, lessonID strin
 	return quiz, f.Questions[quiz.ID], nil
 }
 
-func (f *LearningContentRepo) FindBadgeByLevel(_ context.Context, levelID string) (learning.Badge, error) {
+func (f *LearningContentRepo) FindBadgeByLevel(_ context.Context, levelID string, _ learning.Locale) (learning.Badge, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	b, ok := f.Badges[levelID]
@@ -97,7 +105,7 @@ func (f *LearningContentRepo) FindBadgeByLevel(_ context.Context, levelID string
 	return b, nil
 }
 
-func (f *LearningContentRepo) ListBadgesByIDs(_ context.Context, ids []string) ([]learning.Badge, error) {
+func (f *LearningContentRepo) ListBadgesByIDs(_ context.Context, ids []string, _ learning.Locale) ([]learning.Badge, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	wanted := make(map[string]bool, len(ids))

@@ -38,9 +38,16 @@ func seedTwoLessonLevel(content *fakes.LearningContentRepo) (levelID, lesson1ID,
 }
 
 func newTestService() (*Service, *fakes.LearningContentRepo, *fakes.LearningProgressRepo) {
+	svc, content, progress, _, _ := newTestServiceWithAudio()
+	return svc, content, progress
+}
+
+func newTestServiceWithAudio() (*Service, *fakes.LearningContentRepo, *fakes.LearningProgressRepo, *fakes.LearningAudioRepo, *fakes.TTSSynthesizer) {
 	content := fakes.NewLearningContentRepo()
 	progress := fakes.NewLearningProgressRepo()
-	svc := New(content, progress)
+	audio := fakes.NewLearningAudioRepo()
+	synth := &fakes.TTSSynthesizer{}
+	svc := New(content, progress, audio, synth)
 	svc.now = func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }
-	return svc, content, progress
+	return svc, content, progress, audio, synth
 }

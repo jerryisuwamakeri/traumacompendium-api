@@ -23,7 +23,7 @@ func TestLearningContentRepository_ListLevels(t *testing.T) {
 	db := openTestDB(t)
 	repo := NewLearningContentRepository(db)
 
-	levels, err := repo.ListLevels(context.Background())
+	levels, err := repo.ListLevels(context.Background(), learning.DefaultLocale)
 	if err != nil {
 		t.Fatalf("ListLevels() error = %v", err)
 	}
@@ -39,7 +39,7 @@ func TestLearningContentRepository_FindLevel_NotFound(t *testing.T) {
 	db := openTestDB(t)
 	repo := NewLearningContentRepository(db)
 
-	_, err := repo.FindLevel(context.Background(), "does-not-exist")
+	_, err := repo.FindLevel(context.Background(), "does-not-exist", learning.DefaultLocale)
 	if !errors.Is(err, learning.ErrLevelNotFound) {
 		t.Errorf("FindLevel() error = %v, want %v", err, learning.ErrLevelNotFound)
 	}
@@ -49,7 +49,7 @@ func TestLearningContentRepository_ListLessonsByLevel(t *testing.T) {
 	db := openTestDB(t)
 	repo := NewLearningContentRepository(db)
 
-	lessons, err := repo.ListLessonsByLevel(context.Background(), seededLevel1ID)
+	lessons, err := repo.ListLessonsByLevel(context.Background(), seededLevel1ID, learning.DefaultLocale)
 	if err != nil {
 		t.Fatalf("ListLessonsByLevel() error = %v", err)
 	}
@@ -68,7 +68,7 @@ func TestLearningContentRepository_FindQuizByLesson_IncludesOptionsWithCorrectne
 	db := openTestDB(t)
 	repo := NewLearningContentRepository(db)
 
-	quiz, questions, err := repo.FindQuizByLesson(context.Background(), seededLesson1ID)
+	quiz, questions, err := repo.FindQuizByLesson(context.Background(), seededLesson1ID, learning.DefaultLocale)
 	if err != nil {
 		t.Fatalf("FindQuizByLesson() error = %v", err)
 	}
@@ -97,7 +97,7 @@ func TestLearningContentRepository_FindBadgeByLevel(t *testing.T) {
 	db := openTestDB(t)
 	repo := NewLearningContentRepository(db)
 
-	badge, err := repo.FindBadgeByLevel(context.Background(), seededLevel1ID)
+	badge, err := repo.FindBadgeByLevel(context.Background(), seededLevel1ID, learning.DefaultLocale)
 	if err != nil {
 		t.Fatalf("FindBadgeByLevel() error = %v", err)
 	}
@@ -158,7 +158,7 @@ func TestLearningProgressRepository_AwardBadgeIsIdempotent(t *testing.T) {
 	progress := NewLearningProgressRepository(db)
 	ctx := context.Background()
 
-	badge, err := content.FindBadgeByLevel(ctx, seededLevel1ID)
+	badge, err := content.FindBadgeByLevel(ctx, seededLevel1ID, learning.DefaultLocale)
 	if err != nil {
 		t.Fatalf("FindBadgeByLevel() error = %v", err)
 	}

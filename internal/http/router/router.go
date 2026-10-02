@@ -120,6 +120,7 @@ func registerLearningRoutes(api *gin.RouterGroup, deps Dependencies) {
 	learning.GET("/lessons/:id", deps.Learning.GetLesson)
 	learning.POST("/lessons/:id/complete", deps.Learning.CompleteLesson)
 	learning.GET("/lessons/:id/quiz", deps.Learning.GetQuiz)
+	learning.GET("/lessons/:id/audio", deps.Learning.GetLessonAudio)
 	learning.POST("/quizzes/:id/submit", deps.Learning.SubmitQuiz)
 	learning.GET("/progress", deps.Learning.GetProgress)
 	learning.GET("/badges", deps.Learning.ListBadges)

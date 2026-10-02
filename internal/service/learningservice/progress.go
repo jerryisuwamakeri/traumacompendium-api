@@ -18,8 +18,10 @@ type CompleteLessonResult struct {
 	BadgeAwarded   *learning.Badge
 }
 
-func (s *Service) CompleteLesson(ctx context.Context, userID, lessonID string) (CompleteLessonResult, error) {
-	lesson, err := s.content.FindLesson(ctx, lessonID)
+func (s *Service) CompleteLesson(ctx context.Context, userID, lessonID string, locale learning.Locale) (CompleteLessonResult, error) {
+	locale = resolveLocale(locale)
+
+	lesson, err := s.content.FindLesson(ctx, lessonID, locale)
 	if err != nil {
 		return CompleteLessonResult{}, mapContentNotFound(err)
 	}
@@ -30,7 +32,10 @@ func (s *Service) CompleteLesson(ctx context.Context, userID, lessonID string) (
 
 	result := CompleteLessonResult{Lesson: lesson}
 
-	levelLessons, err := s.content.ListLessonsByLevel(ctx, lesson.LevelID)
+	// Only lesson IDs are needed to compute completion, which is
+	// locale-independent — DefaultLocale avoids an unnecessary join for
+	// text this call never uses.
+	levelLessons, err := s.content.ListLessonsByLevel(ctx, lesson.LevelID, learning.DefaultLocale)
 	if err != nil {
 		return CompleteLessonResult{}, apperror.NewInternal("could not check level completion").WithCause(err)
 	}
@@ -49,7 +54,7 @@ func (s *Service) CompleteLesson(ctx context.Context, userID, lessonID string) (
 		return result, nil
 	}
 
-	badge, err := s.content.FindBadgeByLevel(ctx, lesson.LevelID)
+	badge, err := s.content.FindBadgeByLevel(ctx, lesson.LevelID, locale)
 	if err != nil {
 		if errors.Is(err, learning.ErrBadgeNotFound) {
 			// A level is allowed to have no badge configured; completing
@@ -96,8 +101,10 @@ type LevelProgress struct {
 	BadgeEarned      bool
 }
 
-func (s *Service) GetProgress(ctx context.Context, userID string) ([]LevelProgress, error) {
-	levels, err := s.content.ListLevels(ctx)
+func (s *Service) GetProgress(ctx context.Context, userID string, locale learning.Locale) ([]LevelProgress, error) {
+	locale = resolveLocale(locale)
+
+	levels, err := s.content.ListLevels(ctx, locale)
 	if err != nil {
 		return nil, apperror.NewInternal("could not load progress").WithCause(err)
 	}
@@ -113,7 +120,7 @@ func (s *Service) GetProgress(ctx context.Context, userID string) ([]LevelProgre
 
 	result := make([]LevelProgress, len(levels))
 	for i, level := range levels {
-		lessons, err := s.content.ListLessonsByLevel(ctx, level.ID)
+		lessons, err := s.content.ListLessonsByLevel(ctx, level.ID, learning.DefaultLocale)
 		if err != nil {
 			return nil, apperror.NewInternal("could not load progress").WithCause(err)
 		}
@@ -128,7 +135,7 @@ func (s *Service) GetProgress(ctx context.Context, userID string) ([]LevelProgre
 		}
 
 		badgeEarned := false
-		if badge, err := s.content.FindBadgeByLevel(ctx, level.ID); err == nil {
+		if badge, err := s.content.FindBadgeByLevel(ctx, level.ID, learning.DefaultLocale); err == nil {
 			badgeEarned = ownedSet[badge.ID]
 		}
 
@@ -143,13 +150,13 @@ func (s *Service) GetProgress(ctx context.Context, userID string) ([]LevelProgre
 	return result, nil
 }
 
-func (s *Service) ListUserBadges(ctx context.Context, userID string) ([]learning.Badge, error) {
+func (s *Service) ListUserBadges(ctx context.Context, userID string, locale learning.Locale) ([]learning.Badge, error) {
 	ids, err := s.progress.ListUserBadgeIDs(ctx, userID)
 	if err != nil {
 		return nil, apperror.NewInternal("could not list badges").WithCause(err)
 	}
 
-	badges, err := s.content.ListBadgesByIDs(ctx, ids)
+	badges, err := s.content.ListBadgesByIDs(ctx, ids, resolveLocale(locale))
 	if err != nil {
 		return nil, apperror.NewInternal("could not list badges").WithCause(err)
 	}

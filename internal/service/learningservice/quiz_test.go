@@ -14,7 +14,7 @@ func TestGetQuiz_IncludesIsCorrect(t *testing.T) {
 	svc, content, _ := newTestService()
 	_, _, lesson2ID, _, _, correctOptionID, _ := seedTwoLessonLevel(content)
 
-	_, questions, err := svc.GetQuiz(context.Background(), lesson2ID)
+	_, questions, err := svc.GetQuiz(context.Background(), lesson2ID, "")
 	if err != nil {
 		t.Fatalf("GetQuiz() error = %v", err)
 	}
