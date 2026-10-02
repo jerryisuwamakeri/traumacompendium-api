@@ -22,6 +22,35 @@ func TestSubscriptionRepository_FindByUserID_NotFound(t *testing.T) {
 	}
 }
 
+func TestSubscriptionRepository_FindByReference(t *testing.T) {
+	db := openTestDB(t)
+	userID := seedTestUser(t, db)
+	repo := NewSubscriptionRepository(db)
+	ctx := context.Background()
+
+	now := time.Now().UTC().Truncate(time.Second)
+	s := &billing.Subscription{
+		ID: uuid.NewString(), UserID: userID, Plan: billing.PlanPremium, Status: billing.StatusPending,
+		PaystackReference: "ref-findme", CurrentPeriodEnd: now, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := repo.Upsert(ctx, s); err != nil {
+		t.Fatalf("Upsert() error = %v", err)
+	}
+
+	got, err := repo.FindByReference(ctx, "ref-findme")
+	if err != nil {
+		t.Fatalf("FindByReference() error = %v", err)
+	}
+	if got.UserID != userID {
+		t.Errorf("UserID = %q, want %q", got.UserID, userID)
+	}
+
+	_, err = repo.FindByReference(ctx, "does-not-exist")
+	if !errors.Is(err, billing.ErrNotFound) {
+		t.Errorf("FindByReference() for unknown reference error = %v, want %v", err, billing.ErrNotFound)
+	}
+}
+
 func TestSubscriptionRepository_Upsert_CreateThenRenew(t *testing.T) {
 	db := openTestDB(t)
 	userID := seedTestUser(t, db)

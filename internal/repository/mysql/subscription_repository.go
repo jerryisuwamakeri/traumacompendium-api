@@ -48,8 +48,21 @@ func (r *SubscriptionRepository) FindByUserID(ctx context.Context, userID string
 		FROM subscriptions
 		WHERE user_id = ?
 	`
+	return scanSubscription(r.db.QueryRowContext(ctx, q, userID))
+}
+
+func (r *SubscriptionRepository) FindByReference(ctx context.Context, reference string) (*billing.Subscription, error) {
+	const q = `
+		SELECT id, user_id, plan, status, paystack_reference, current_period_end, created_at, updated_at
+		FROM subscriptions
+		WHERE paystack_reference = ?
+	`
+	return scanSubscription(r.db.QueryRowContext(ctx, q, reference))
+}
+
+func scanSubscription(row *sql.Row) (*billing.Subscription, error) {
 	var s billing.Subscription
-	err := r.db.QueryRowContext(ctx, q, userID).Scan(
+	err := row.Scan(
 		&s.ID, &s.UserID, &s.Plan, &s.Status, &s.PaystackReference, &s.CurrentPeriodEnd, &s.CreatedAt, &s.UpdatedAt,
 	)
 	if err != nil {

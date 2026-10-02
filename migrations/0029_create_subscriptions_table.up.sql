@@ -9,5 +9,6 @@ CREATE TABLE subscriptions (
     updated_at         TIMESTAMP    NOT NULL,
 
     UNIQUE KEY uq_subscriptions_user (user_id),
+    KEY idx_subscriptions_paystack_reference (paystack_reference),
     CONSTRAINT fk_subscriptions_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

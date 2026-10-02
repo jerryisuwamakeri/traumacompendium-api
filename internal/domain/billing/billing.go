@@ -23,6 +23,10 @@ const (
 type Status string
 
 const (
+	// StatusPending is set the moment checkout is initiated (see
+	// billingservice.Subscribe) — a reference exists at Paystack, but
+	// no payment has been confirmed yet. Never counts as premium.
+	StatusPending Status = "pending"
 	StatusActive  Status = "active"
 	StatusExpired Status = "expired"
 )
@@ -51,6 +55,10 @@ func (s Subscription) IsActivePremium(now time.Time) bool {
 type Repository interface {
 	Upsert(ctx context.Context, s *Subscription) error
 	FindByUserID(ctx context.Context, userID string) (*Subscription, error)
+	// FindByReference looks up the subscription checkout started with
+	// the given Paystack reference — used by the webhook handler to
+	// find which user a payment confirmation belongs to.
+	FindByReference(ctx context.Context, reference string) (*Subscription, error)
 }
 
 // ErrNotFound is returned by FindByUserID when the user has never
