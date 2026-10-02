@@ -1,0 +1,3 @@
+DELETE FROM quiz_option_translations WHERE option_id LIKE '00000000-0000-0000-0000-0000000034%';
+DELETE FROM quiz_question_translations WHERE question_id LIKE '00000000-0000-0000-0000-0000000033%';
+DELETE FROM lesson_translations WHERE lesson_id LIKE '00000000-0000-0000-0000-0000000031%';
