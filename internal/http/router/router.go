@@ -34,6 +34,7 @@ type Dependencies struct {
 	SafeReach *handler.SafeReachHandler
 	Community *handler.CommunityHandler
 	Billing   *handler.BillingHandler
+	Assistant *handler.AssistantHandler
 	Health    *handler.HealthHandler
 }
 
@@ -65,6 +66,7 @@ func New(deps Dependencies) *gin.Engine {
 	registerSafeReachRoutes(api, deps)
 	registerCommunityRoutes(api, deps)
 	registerBillingRoutes(api, deps)
+	registerAssistantRoutes(api, deps)
 
 	return r
 }
@@ -188,4 +190,13 @@ func registerBillingRoutes(api *gin.RouterGroup, deps Dependencies) {
 	billing.Use(middleware.RequireAuth(deps.JWT))
 	billing.POST("/subscribe", deps.Billing.Subscribe)
 	billing.GET("/subscription", deps.Billing.GetSubscription)
+}
+
+func registerAssistantRoutes(api *gin.RouterGroup, deps Dependencies) {
+	assistant := api.Group("/assistant")
+	assistant.Use(middleware.RequireAuth(deps.JWT))
+
+	assistant.POST("/messages", deps.Assistant.SendMessage)
+	assistant.GET("/conversations", deps.Assistant.ListConversations)
+	assistant.GET("/conversations/:id/messages", deps.Assistant.ListMessages)
 }

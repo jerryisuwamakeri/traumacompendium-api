@@ -30,6 +30,7 @@ import (
 	"github.com/traumacompendium/backend/internal/platform/database"
 	"github.com/traumacompendium/backend/internal/platform/logger"
 	"github.com/traumacompendium/backend/internal/repository/mysql"
+	"github.com/traumacompendium/backend/internal/service/assistantservice"
 	"github.com/traumacompendium/backend/internal/service/authservice"
 	"github.com/traumacompendium/backend/internal/service/billingservice"
 	"github.com/traumacompendium/backend/internal/service/communityservice"
@@ -102,6 +103,7 @@ func buildServer(cfg *config.Config, log zerolog.Logger, db *sql.DB, redisClient
 	communityReportRepo := mysql.NewCommunityReportRepository(db)
 	subscriptionRepo := mysql.NewSubscriptionRepository(db)
 	webhookEventRepo := mysql.NewWebhookEventRepository(db)
+	assistantRepo := mysql.NewAssistantRepository(db)
 
 	jwtManager := jwtutil.NewManager(cfg.JWT)
 	emailSender := email.New(cfg.SMTP, log)
@@ -124,6 +126,7 @@ func buildServer(cfg *config.Config, log zerolog.Logger, db *sql.DB, redisClient
 	)
 	communitySvc := communityservice.New(communityPostRepo, communityCommentRepo, communityReportRepo, aiClient, log)
 	billingSvc := billingservice.New(subscriptionRepo, webhookEventRepo, userRepo, paystackClient, cfg.Paystack.SecretKey, cfg.App.BaseURL, log)
+	assistantSvc := assistantservice.New(assistantRepo, aiClient, billingSvc, log)
 
 	deps := router.Dependencies{
 		Config:    cfg,
@@ -138,6 +141,7 @@ func buildServer(cfg *config.Config, log zerolog.Logger, db *sql.DB, redisClient
 		SafeReach: handler.NewSafeReachHandler(safeReachSvc, redisClient, cfg.HTTP.AllowedOrigins, log),
 		Community: handler.NewCommunityHandler(communitySvc),
 		Billing:   handler.NewBillingHandler(billingSvc),
+		Assistant: handler.NewAssistantHandler(assistantSvc),
 		Health:    handler.NewHealthHandler(db, redisClient),
 	}
 
