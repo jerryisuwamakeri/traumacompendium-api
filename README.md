@@ -11,6 +11,10 @@ This repository implements the **Phase 1 core foundation** of the MVP:
   per-user progress, and badges.
 - **Journaling** — private entries with JSON/CSV export.
 - **Mood & trigger tracking** — quick daily logs with a trend summary.
+- **Localization** — learning content (levels, lessons, quizzes, badges) and
+  validation messages in English plus 7 other languages, with a
+  text-to-speech lesson-audio endpoint. See [Localization](#localization)
+  below — the translations are LLM-drafted and explicitly unreviewed.
 
 SafeReach emergency alerts, the AI assistant, community features, levels 2–6
 content, and paid tiers are Phase 2/3 scope per the product brief and are not
@@ -31,6 +35,7 @@ in this repository yet.
 | Auth            | JWT (`golang-jwt/v5`), bcrypt passwords, rotating refresh tokens |
 | SMS             | [Termii](https://termii.com), sandbox/production switch         |
 | Email           | SMTP (stdlib `net/smtp`), sandbox/production switch              |
+| Text-to-speech  | Google Cloud TTS REST API, sandbox/production switch              |
 | Logging         | `zerolog`, structured JSON (console-pretty in dev)                |
 | Validation      | `go-playground/validator` via Gin binding                        |
 
@@ -61,9 +66,9 @@ internal/
     middleware/              auth, RBAC, rate limiting, logging, recovery, CORS
     dto/                     wire request/response shapes, decoupled from domain types
     router/                  route wiring
-  notification/             email + SMS senders (sandbox/production per provider)
+  notification/             email + SMS + TTS senders (sandbox/production per provider)
   platform/                 database, cache, logger bootstrapping
-  pkg/                      apperror, jwtutil, hash, otp — small, dependency-free utilities
+  pkg/                      apperror, jwtutil, hash, otp, i18n — small, dependency-free utilities
   testsupport/fakes/        in-memory repository/sender fakes shared by service & handler tests
 
 migrations/                 versioned, embedded .sql files (golang-migrate-style naming)
@@ -116,9 +121,11 @@ needed in either option.
 All configuration is environment variables (see `.env.example` for the full,
 documented list). Highlights:
 
-- `TERMII_MODE` / `SMTP_MODE` — `sandbox` (default; logs what would have been
-  sent, no real SMS/email) or `production` (real Termii/SMTP calls, requires
-  `TERMII_API_KEY` / `SMTP_HOST` + `SMTP_USERNAME`).
+- `TERMII_MODE` / `SMTP_MODE` / `TTS_MODE` — `sandbox` (default; logs what
+  would have been sent, or for TTS returns a placeholder clip — no real
+  SMS/email/synthesis) or `production` (real Termii/SMTP/Google Cloud TTS
+  calls, requires `TERMII_API_KEY` / `SMTP_HOST` + `SMTP_USERNAME` /
+  `TTS_API_KEY` respectively).
 - `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` — required, must differ from
   each other. Generate with `openssl rand -base64 48`.
 - In `APP_ENV=production`, the app refuses to start if `DB_PASSWORD` is
@@ -139,6 +146,37 @@ Every response uses one JSON envelope:
 
 `meta` appears only on paginated list endpoints; `fields` only on
 `validation_error`.
+
+## Localization
+
+Supported locales: `en` (canonical), `pcm` (Nigerian Pidgin), `yo`
+(Yoruba), `ha` (Hausa), `ig` (Igbo), `fr` (French), `sw` (Swahili), `ar`
+(Arabic) — see `learning.SupportedLocales`.
+
+- **Requesting a locale**: pass `?locale=yo` on any `/api/v1/learning/*`
+  request, or set the `Accept-Language` header; an unrecognized or absent
+  locale falls back to English rather than erroring.
+- **`needs_review`**: every translatable response (levels, lessons, quiz
+  questions, badges) includes `"locale"` and `"needs_review"`. All 210
+  seeded non-English rows (`migrations/0021_seed_level1_translations.up.sql`)
+  are LLM-drafted and marked `needs_review: true` — **they have not been
+  reviewed by a native-speaking translator or a clinician**, which matters
+  for trauma-sensitive content. Treat them as a working draft for a human
+  reviewer, not as copy ready to ship to end users. Canonical English rows
+  are always `needs_review: false`.
+- **Lesson audio**: `GET /api/v1/learning/lessons/:id/audio?locale=yo`
+  synthesizes (and caches) a lesson's text as speech on first request;
+  later requests for the same lesson+locale are served from the
+  `lesson_audio` cache. In `TTS_MODE=sandbox` (the default) this returns a
+  valid but silent placeholder WAV — real audio requires a configured
+  `TTS_API_KEY`. Which of the 8 locales Google Cloud TTS actually
+  supports with real voices hasn't been verified against the live API
+  from this environment; an unsupported locale fails clearly rather than
+  silently (see `internal/notification/tts`).
+- **Validation messages** (`required`, `email`, `min`, `max`, `e164`, and
+  a generic fallback) are also localized, via `internal/pkg/i18n`'s small
+  catalog — independent of, and much narrower than, the content
+  translations above.
 
 ## Testing
 
@@ -168,10 +206,10 @@ PR.
 
 ## Project conventions worth knowing
 
-- **Sandbox-by-default integrations.** `TERMII_MODE` and `SMTP_MODE` both
-  default to `sandbox`; a fresh checkout, `docker compose up`, and CI never
-  talk to a real SMS/email provider unless someone deliberately flips the
-  switch and supplies real credentials.
+- **Sandbox-by-default integrations.** `TERMII_MODE`, `SMTP_MODE`, and
+  `TTS_MODE` all default to `sandbox`; a fresh checkout, `docker compose
+  up`, and CI never talk to a real SMS/email/TTS provider unless someone
+  deliberately flips the switch and supplies real credentials.
 - **Timestamps are application-owned.** `created_at`/`updated_at` are set
   by the service layer (`Service.now`, swappable in tests) and written
   explicitly, rather than left to the database's `DEFAULT
@@ -200,3 +238,15 @@ Scoped out of Phase 1 by design, not by oversight:
 - Quiz submission history — `SubmitQuiz` scores on the fly and intentionally
   doesn't persist attempts (see the doc comment on
   `learningservice.Service.SubmitQuiz`).
+- Localizing `apperror`'s ~60 hand-written service-level messages
+  ("invalid credentials", "could not create account", etc.) — only the
+  small validator-message catalog is localized (see
+  [Localization](#localization)). Doing the rest properly means
+  `apperror.Error` carrying message *keys* instead of literal strings and
+  touching nearly every service file; a real architectural change, not a
+  catalog addition.
+- Human review of the 210 seeded non-English content rows, and of the
+  `tts.localeVoice` BCP-47 mapping against what Google Cloud TTS actually
+  supports live — both require resources (a native-speaking translator /
+  clinician, and outbound internet access to the real TTS API) this
+  environment didn't have.
