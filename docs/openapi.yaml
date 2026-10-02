@@ -24,6 +24,8 @@ paths:
     post:
       tags: [Auth]
       summary: Create a new, unverified account
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
         required: true
         content:
@@ -188,6 +190,8 @@ paths:
       tags: [Journal]
       summary: Create a journal entry
       security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
         required: true
         content:
@@ -199,6 +203,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/EnvelopeOf_JournalEntry" }
+        "409": { $ref: "#/components/responses/Conflict" }
     get:
       tags: [Journal]
       summary: List journal entries (paginated, optional date range)
@@ -275,6 +280,8 @@ paths:
       tags: [Mood]
       summary: Log a mood & trigger entry
       security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
         required: true
         content:
@@ -286,6 +293,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/EnvelopeOf_MoodEntry" }
+        "409": { $ref: "#/components/responses/Conflict" }
     get:
       tags: [Mood]
       summary: List mood entries (paginated, optional date range)
@@ -522,6 +530,15 @@ components:
       in: query
       description: RFC3339 timestamp
       schema: { type: string, format: date-time }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      description: >
+        Optional. A retry with the same key (scoped to the caller) replays
+        the original response instead of creating a duplicate resource; a
+        duplicate sent while the first is still in flight gets 409. Omit
+        it to opt out — this is a client convenience, never required.
+      schema: { type: string }
 
   responses:
     ValidationError:

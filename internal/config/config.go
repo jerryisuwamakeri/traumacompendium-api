@@ -124,6 +124,7 @@ type HTTPConfig struct {
 	ReadTimeout            time.Duration
 	WriteTimeout           time.Duration
 	ShutdownGracePeriod    time.Duration
+	IdempotencyTTL         time.Duration
 }
 
 // Load reads configuration from the process environment. If a .env file is
@@ -194,6 +195,7 @@ func Load() (*Config, error) {
 			ReadTimeout:            getEnvAsDuration("HTTP_READ_TIMEOUT", 10*time.Second),
 			WriteTimeout:           getEnvAsDuration("HTTP_WRITE_TIMEOUT", 15*time.Second),
 			ShutdownGracePeriod:    getEnvAsDuration("HTTP_SHUTDOWN_GRACE_PERIOD", 15*time.Second),
+			IdempotencyTTL:         getEnvAsDuration("IDEMPOTENCY_TTL", 24*time.Hour),
 		},
 	}
 

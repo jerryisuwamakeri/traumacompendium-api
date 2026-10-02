@@ -70,7 +70,7 @@ func registerAuthRoutes(api *gin.RouterGroup, deps Dependencies) {
 	// reset), so they get their own ceiling.
 	auth.Use(middleware.RateLimit(deps.Redis, "auth", deps.Config.HTTP.AuthRateLimitPerMinute, time.Minute, deps.Logger))
 
-	auth.POST("/register", deps.Auth.Register)
+	auth.POST("/register", middleware.Idempotency(deps.Redis, deps.Config.HTTP.IdempotencyTTL, deps.Logger), deps.Auth.Register)
 	auth.POST("/verify-email", deps.Auth.VerifyEmail)
 	auth.POST("/verify-phone", deps.Auth.VerifyPhone)
 	auth.POST("/resend-otp", deps.Auth.ResendOTP)
@@ -93,7 +93,7 @@ func registerJournalRoutes(api *gin.RouterGroup, deps Dependencies) {
 	journal := api.Group("/journal")
 	journal.Use(middleware.RequireAuth(deps.JWT))
 
-	journal.POST("/entries", deps.Journal.Create)
+	journal.POST("/entries", middleware.Idempotency(deps.Redis, deps.Config.HTTP.IdempotencyTTL, deps.Logger), deps.Journal.Create)
 	journal.GET("/entries", deps.Journal.List)
 	journal.GET("/entries/:id", deps.Journal.Get)
 	journal.PATCH("/entries/:id", deps.Journal.Update)
@@ -105,7 +105,7 @@ func registerMoodRoutes(api *gin.RouterGroup, deps Dependencies) {
 	mood := api.Group("/mood")
 	mood.Use(middleware.RequireAuth(deps.JWT))
 
-	mood.POST("/entries", deps.Mood.Create)
+	mood.POST("/entries", middleware.Idempotency(deps.Redis, deps.Config.HTTP.IdempotencyTTL, deps.Logger), deps.Mood.Create)
 	mood.GET("/entries", deps.Mood.List)
 	mood.GET("/entries/:id", deps.Mood.Get)
 	mood.DELETE("/entries/:id", deps.Mood.Delete)

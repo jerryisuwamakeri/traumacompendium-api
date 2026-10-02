@@ -132,6 +132,31 @@ documented list). Highlights:
   empty or if a `_MODE=production` integration is missing its credentials —
   see `internal/config/config.go`'s `validate()`.
 
+## Idempotency and hardening
+
+- **Idempotency-Key**: `POST /auth/register`, `POST /journal/entries`, and
+  `POST /mood/entries` accept an `Idempotency-Key` header. A retry with the
+  same key (scoped to the same caller — authenticated user ID, or client IP
+  for the unauthenticated register endpoint) replays the original response
+  instead of creating a duplicate resource; a duplicate that arrives while
+  the first is still in flight gets `409 Conflict`. Opt-in only — requests
+  without the header are unaffected. Backed by Redis (`internal/http/middleware/idempotency.go`);
+  on a non-2xx response the key is released rather than cached, so the
+  client can fix its input and retry with the same key. `IDEMPOTENCY_TTL`
+  controls how long a successful response stays replayable (default `24h`).
+- **Security headers**: every response gets `X-Content-Type-Options`,
+  `X-Frame-Options`, `Referrer-Policy`, a locked-down `Content-Security-Policy`
+  (this is a JSON/audio API, never HTML), and `Permissions-Policy`
+  (`internal/http/middleware/security_headers.go`). `Strict-Transport-Security`
+  is deliberately left to the TLS-terminating reverse proxy in front of this
+  process, not set here.
+- **Input sanitization**: free-text fields (journal title/content, mood
+  note/tags, display name) are stripped of HTML tags at the service layer
+  (`internal/pkg/sanitize`) before being persisted — defense in depth against
+  a future frontend rendering user-submitted text as unescaped HTML. The API
+  itself has no first-order XSS hole (Go's JSON encoder escapes `<`/`>`/`&`,
+  and all SQL is parameterized); this closes the stored-XSS gap one layer up.
+
 ## API documentation
 
 The full contract is in [`docs/openapi.yaml`](docs/openapi.yaml) — paste it
