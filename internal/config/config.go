@@ -34,6 +34,7 @@ type Config struct {
 	OTP      OTPConfig
 	Termii   TermiiConfig
 	SMTP     SMTPConfig
+	TTS      TTSConfig
 	HTTP     HTTPConfig
 }
 
@@ -107,6 +108,15 @@ type SMTPConfig struct {
 	FromName string
 }
 
+// TTSConfig configures the lesson-audio text-to-speech integration.
+// Mode mirrors TermiiConfig.Mode: sandbox returns a placeholder clip
+// instead of calling a real provider.
+type TTSConfig struct {
+	Mode    Mode
+	BaseURL string
+	APIKey  string
+}
+
 type HTTPConfig struct {
 	AllowedOrigins         []string
 	RateLimitPerMinute     int
@@ -172,6 +182,11 @@ func Load() (*Config, error) {
 			FromAddr: getEnv("SMTP_FROM_ADDRESS", "no-reply@traumacompendium.app"),
 			FromName: getEnv("SMTP_FROM_NAME", "TraumaCompendium"),
 		},
+		TTS: TTSConfig{
+			Mode:    Mode(getEnv("TTS_MODE", string(ModeSandbox))),
+			BaseURL: getEnv("TTS_BASE_URL", "https://texttospeech.googleapis.com"),
+			APIKey:  getEnv("TTS_API_KEY", ""),
+		},
 		HTTP: HTTPConfig{
 			AllowedOrigins:         splitAndTrim(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")),
 			RateLimitPerMinute:     getEnvAsInt("RATE_LIMIT_PER_MINUTE", 120),
@@ -214,6 +229,9 @@ func (c *Config) validate() error {
 		}
 		if c.SMTP.Mode == ModeProduction && (c.SMTP.Host == "" || c.SMTP.Username == "") {
 			missing = append(missing, "SMTP_HOST/SMTP_USERNAME")
+		}
+		if c.TTS.Mode == ModeProduction && c.TTS.APIKey == "" {
+			missing = append(missing, "TTS_API_KEY")
 		}
 	}
 
