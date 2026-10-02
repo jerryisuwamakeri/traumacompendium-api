@@ -29,6 +29,7 @@ type Dependencies struct {
 	Auth    *handler.AuthHandler
 	User    *handler.UserHandler
 	Journal *handler.JournalHandler
+	Mood    *handler.MoodHandler
 	Health  *handler.HealthHandler
 }
 
@@ -54,6 +55,7 @@ func New(deps Dependencies) *gin.Engine {
 	registerAuthRoutes(api, deps)
 	registerUserRoutes(api, deps)
 	registerJournalRoutes(api, deps)
+	registerMoodRoutes(api, deps)
 
 	return r
 }
@@ -94,4 +96,15 @@ func registerJournalRoutes(api *gin.RouterGroup, deps Dependencies) {
 	journal.PATCH("/entries/:id", deps.Journal.Update)
 	journal.DELETE("/entries/:id", deps.Journal.Delete)
 	journal.GET("/export", deps.Journal.Export)
+}
+
+func registerMoodRoutes(api *gin.RouterGroup, deps Dependencies) {
+	mood := api.Group("/mood")
+	mood.Use(middleware.RequireAuth(deps.JWT))
+
+	mood.POST("/entries", deps.Mood.Create)
+	mood.GET("/entries", deps.Mood.List)
+	mood.GET("/entries/:id", deps.Mood.Get)
+	mood.DELETE("/entries/:id", deps.Mood.Delete)
+	mood.GET("/summary", deps.Mood.Summary)
 }

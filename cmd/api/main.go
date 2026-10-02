@@ -28,6 +28,7 @@ import (
 	"github.com/traumacompendium/backend/internal/repository/mysql"
 	"github.com/traumacompendium/backend/internal/service/authservice"
 	"github.com/traumacompendium/backend/internal/service/journalservice"
+	"github.com/traumacompendium/backend/internal/service/moodservice"
 	"github.com/traumacompendium/backend/internal/service/userservice"
 	"github.com/traumacompendium/backend/migrations"
 )
@@ -81,6 +82,7 @@ func buildServer(cfg *config.Config, log zerolog.Logger, db *sql.DB, redisClient
 	otpRepo := mysql.NewOTPRepository(db)
 	refreshTokenRepo := mysql.NewRefreshTokenRepository(db)
 	journalRepo := mysql.NewJournalRepository(db)
+	moodRepo := mysql.NewMoodRepository(db)
 
 	jwtManager := jwtutil.NewManager(cfg.JWT)
 	emailSender := email.New(cfg.SMTP, log)
@@ -89,6 +91,7 @@ func buildServer(cfg *config.Config, log zerolog.Logger, db *sql.DB, redisClient
 	authSvc := authservice.New(userRepo, otpRepo, refreshTokenRepo, jwtManager, emailSender, smsSender, cfg.OTP, log)
 	userSvc := userservice.New(userRepo)
 	journalSvc := journalservice.New(journalRepo)
+	moodSvc := moodservice.New(moodRepo)
 
 	deps := router.Dependencies{
 		Config:  cfg,
@@ -98,6 +101,7 @@ func buildServer(cfg *config.Config, log zerolog.Logger, db *sql.DB, redisClient
 		Auth:    handler.NewAuthHandler(authSvc),
 		User:    handler.NewUserHandler(userSvc),
 		Journal: handler.NewJournalHandler(journalSvc),
+		Mood:    handler.NewMoodHandler(moodSvc),
 		Health:  handler.NewHealthHandler(db, redisClient),
 	}
 

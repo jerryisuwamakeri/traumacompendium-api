@@ -2,8 +2,6 @@ package handler
 
 import (
 	"net/http"
-	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -11,7 +9,6 @@ import (
 	apphttp "github.com/traumacompendium/backend/internal/http"
 	"github.com/traumacompendium/backend/internal/http/dto"
 	"github.com/traumacompendium/backend/internal/http/middleware"
-	"github.com/traumacompendium/backend/internal/pkg/apperror"
 	"github.com/traumacompendium/backend/internal/service/journalservice"
 )
 
@@ -117,39 +114,22 @@ func (h *JournalHandler) Export(c *gin.Context) {
 }
 
 func parseJournalListFilter(c *gin.Context) (journal.ListFilter, error) {
-	filter := journal.ListFilter{Limit: 20}
-
-	if v := c.Query("limit"); v != "" {
-		n, err := strconv.Atoi(v)
-		if err != nil || n <= 0 || n > 100 {
-			return journal.ListFilter{}, apperror.NewBadRequest("limit must be an integer between 1 and 100")
-		}
-		filter.Limit = n
+	limit, err := apphttp.ParseLimit(c, 20, 100)
+	if err != nil {
+		return journal.ListFilter{}, err
+	}
+	offset, err := apphttp.ParseOffset(c)
+	if err != nil {
+		return journal.ListFilter{}, err
+	}
+	from, err := apphttp.ParseOptionalTime(c, "from")
+	if err != nil {
+		return journal.ListFilter{}, err
+	}
+	to, err := apphttp.ParseOptionalTime(c, "to")
+	if err != nil {
+		return journal.ListFilter{}, err
 	}
 
-	if v := c.Query("offset"); v != "" {
-		n, err := strconv.Atoi(v)
-		if err != nil || n < 0 {
-			return journal.ListFilter{}, apperror.NewBadRequest("offset must be a non-negative integer")
-		}
-		filter.Offset = n
-	}
-
-	if v := c.Query("from"); v != "" {
-		t, err := time.Parse(time.RFC3339, v)
-		if err != nil {
-			return journal.ListFilter{}, apperror.NewBadRequest("from must be an RFC3339 timestamp")
-		}
-		filter.From = &t
-	}
-
-	if v := c.Query("to"); v != "" {
-		t, err := time.Parse(time.RFC3339, v)
-		if err != nil {
-			return journal.ListFilter{}, apperror.NewBadRequest("to must be an RFC3339 timestamp")
-		}
-		filter.To = &t
-	}
-
-	return filter, nil
+	return journal.ListFilter{Limit: limit, Offset: offset, From: from, To: to}, nil
 }
