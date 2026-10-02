@@ -49,6 +49,12 @@ func openTestDB(t *testing.T) *sql.DB {
 	return db
 }
 
+// truncateAll clears per-user state between tests. It deliberately does
+// NOT truncate the learning content tables (levels, lessons, quizzes,
+// quiz_questions, quiz_options, badges): that data is reference content
+// seeded once by migration 0014, analogous to a lookup table, and
+// learning repository tests rely on it being present and stable across
+// the whole test run rather than re-seeding it themselves.
 func truncateAll(t *testing.T, db *sql.DB) {
 	t.Helper()
 	for _, stmt := range []string{
@@ -57,6 +63,8 @@ func truncateAll(t *testing.T, db *sql.DB) {
 		"TRUNCATE TABLE otp_codes",
 		"TRUNCATE TABLE journal_entries",
 		"TRUNCATE TABLE mood_entries",
+		"TRUNCATE TABLE user_lesson_progress",
+		"TRUNCATE TABLE user_badges",
 		"TRUNCATE TABLE users",
 		"SET FOREIGN_KEY_CHECKS = 1",
 	} {

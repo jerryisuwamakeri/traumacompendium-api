@@ -114,9 +114,59 @@ func applyMigration(ctx context.Context, db *sql.DB, version, sqlScript string) 
 	return tx.Commit()
 }
 
-// splitStatements performs a simple semicolon split. Migration files in
-// this project are plain DDL/DML with no stored procedures, so this is
-// sufficient without pulling in a full SQL parser.
+// splitStatements splits a migration file into individual statements on
+// the ';' that terminates each one. It tracks two kinds of "don't split
+// here" regions so SQL syntax inside plain content doesn't get mistaken
+// for statement structure:
+//
+//   - single-quoted string literals, including the standard SQL escape
+//     for a literal quote (two single quotes in a row) — needed because
+//     seeded lesson content contains real sentences, e.g. "...a flaw in
+//     you; it is a learned pattern...", with semicolons of their own.
+//   - "--" line comments — needed because a comment can itself contain
+//     an apostrophe (e.g. "-- the brief's learning framework"), which
+//     would otherwise be misread as opening a string literal.
+//
+// Migration files in this project are plain DDL/DML with no stored
+// procedures, block comments, or double-quoted/backtick identifiers
+// containing semicolons, so this is sufficient without pulling in a
+// full SQL parser.
 func splitStatements(script string) []string {
-	return strings.Split(script, ";")
+	var statements []string
+	var current strings.Builder
+	inString := false
+	inComment := false
+
+	runes := []rune(script)
+	for i := 0; i < len(runes); i++ {
+		r := runes[i]
+		current.WriteRune(r)
+
+		switch {
+		case inComment:
+			if r == '\n' {
+				inComment = false
+			}
+		case inString && r == '\'' && i+1 < len(runes) && runes[i+1] == '\'':
+			// Escaped quote (two single quotes) inside a string literal:
+			// consume both runes as literal content, stay inString.
+			current.WriteRune(runes[i+1])
+			i++
+		case r == '\'':
+			inString = !inString
+		case !inString && r == '-' && i+1 < len(runes) && runes[i+1] == '-':
+			inComment = true
+			current.WriteRune(runes[i+1])
+			i++
+		case r == ';' && !inString:
+			statements = append(statements, current.String())
+			current.Reset()
+		}
+	}
+
+	if strings.TrimSpace(current.String()) != "" {
+		statements = append(statements, current.String())
+	}
+
+	return statements
 }
