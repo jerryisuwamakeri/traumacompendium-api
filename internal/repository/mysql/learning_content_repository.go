@@ -24,7 +24,7 @@ func (r *LearningContentRepository) ListLevels(ctx context.Context) ([]learning.
 	if err != nil {
 		return nil, fmt.Errorf("mysql: list levels: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck // read-only cursor, nothing actionable on close failure
 
 	levels := make([]learning.Level, 0)
 	for rows.Next() {
@@ -59,7 +59,7 @@ func (r *LearningContentRepository) ListLessonsByLevel(ctx context.Context, leve
 	if err != nil {
 		return nil, fmt.Errorf("mysql: list lessons by level: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck // read-only cursor, nothing actionable on close failure
 
 	lessons := make([]learning.Lesson, 0)
 	for rows.Next() {
@@ -117,7 +117,7 @@ func (r *LearningContentRepository) FindQuizByLesson(ctx context.Context, lesson
 	if err != nil {
 		return learning.Quiz{}, nil, fmt.Errorf("mysql: list quiz questions: %w", err)
 	}
-	defer qRows.Close()
+	defer qRows.Close() //nolint:errcheck // read-only cursor, nothing actionable on close failure
 
 	var questions []learning.Question
 	questionIndex := make(map[string]int)
@@ -151,7 +151,7 @@ func (r *LearningContentRepository) FindQuizByLesson(ctx context.Context, lesson
 	if err != nil {
 		return learning.Quiz{}, nil, fmt.Errorf("mysql: list quiz options: %w", err)
 	}
-	defer oRows.Close()
+	defer oRows.Close() //nolint:errcheck // read-only cursor, nothing actionable on close failure
 
 	for oRows.Next() {
 		var o learning.Option
@@ -203,7 +203,7 @@ func (r *LearningContentRepository) ListBadgesByIDs(ctx context.Context, ids []s
 	if err != nil {
 		return nil, fmt.Errorf("mysql: list badges by ids: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck // read-only cursor, nothing actionable on close failure
 
 	badges := make([]learning.Badge, 0, len(ids))
 	for rows.Next() {

@@ -60,7 +60,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("connect to database: %w", err)
 	}
-	defer db.Close()
+	defer db.Close() //nolint:errcheck // best-effort on process shutdown
 
 	var migrationsFS fs.FS = migrations.FS
 	if err := database.Migrate(startupCtx, db, migrationsFS, log); err != nil {
@@ -71,7 +71,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("connect to redis: %w", err)
 	}
-	defer redisClient.Close()
+	defer redisClient.Close() //nolint:errcheck // best-effort on process shutdown
 
 	srv := buildServer(cfg, log, db, redisClient)
 

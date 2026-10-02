@@ -78,7 +78,7 @@ func appliedVersions(ctx context.Context, db *sql.DB) (map[string]bool, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck // read-only cursor, nothing actionable on close failure
 
 	applied := make(map[string]bool)
 	for rows.Next() {

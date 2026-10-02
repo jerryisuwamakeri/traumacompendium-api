@@ -120,7 +120,7 @@ func (s *termiiSender) Send(ctx context.Context, msg Message) error {
 	if err != nil {
 		return fmt.Errorf("sms: request termii: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // response already fully read below
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

@@ -1,0 +1,40 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - gocritic
+    - govet
+    - misspell
+    - revive
+    - unconvert
+    - unparam
+  settings:
+    revive:
+      rules:
+        # This codebase's convention is self-descriptive names over doc
+        # comments (see CLAUDE.md / repo-wide style): a comment is added
+        # only when it carries information the signature doesn't already
+        # — a hidden constraint, an invariant, a non-obvious reason.
+        # Requiring a boilerplate "// Foo does Foo" comment on every
+        # exported identifier would fight that convention rather than
+        # catch a real gap, so this rule is disabled rather than
+        # satisfied mechanically.
+        - name: exported
+          disabled: true
+  exclusions:
+    rules:
+      # Test files commonly leave an error unchecked after an assertion
+      # already failed the test (t.Fatalf), and unparam/revive flag
+      # table-driven mock methods whose unused parameters exist only to
+      # satisfy an interface.
+      - path: _test\.go
+        linters:
+          - unparam
+          - errcheck
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

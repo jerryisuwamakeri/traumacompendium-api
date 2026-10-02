@@ -54,7 +54,7 @@ func (r *LearningProgressRepository) ListCompletedLessonIDs(ctx context.Context,
 	if err != nil {
 		return nil, fmt.Errorf("mysql: list completed lesson ids: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck // read-only cursor, nothing actionable on close failure
 
 	completed := make([]string, 0, len(lessonIDs))
 	for rows.Next() {
@@ -87,7 +87,7 @@ func (r *LearningProgressRepository) ListUserBadgeIDs(ctx context.Context, userI
 	if err != nil {
 		return nil, fmt.Errorf("mysql: list user badge ids: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck // read-only cursor, nothing actionable on close failure
 
 	ids := make([]string, 0)
 	for rows.Next() {

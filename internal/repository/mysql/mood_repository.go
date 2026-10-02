@@ -101,7 +101,7 @@ func (r *MoodRepository) List(ctx context.Context, userID string, filter mood.Li
 	if err != nil {
 		return nil, 0, fmt.Errorf("mysql: list mood entries: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck // read-only cursor, nothing actionable on close failure
 
 	entries, err := scanMoodEntries(rows)
 	if err != nil {
@@ -122,7 +122,7 @@ func (r *MoodRepository) ListInRange(ctx context.Context, userID string, from, t
 	if err != nil {
 		return nil, fmt.Errorf("mysql: list mood entries in range: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck // read-only cursor, nothing actionable on close failure
 
 	return scanMoodEntries(rows)
 }

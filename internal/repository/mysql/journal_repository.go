@@ -124,7 +124,7 @@ func (r *JournalRepository) List(ctx context.Context, userID string, filter jour
 	if err != nil {
 		return nil, 0, fmt.Errorf("mysql: list journal entries: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck // read-only cursor, nothing actionable on close failure
 
 	entries, err := scanJournalEntries(rows)
 	if err != nil {
@@ -145,7 +145,7 @@ func (r *JournalRepository) ListAll(ctx context.Context, userID string) ([]*jour
 	if err != nil {
 		return nil, fmt.Errorf("mysql: list all journal entries: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck // read-only cursor, nothing actionable on close failure
 
 	return scanJournalEntries(rows)
 }

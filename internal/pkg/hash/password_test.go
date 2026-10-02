@@ -45,7 +45,9 @@ func TestToken_RoundTrip(t *testing.T) {
 }
 
 func TestToken_Deterministic(t *testing.T) {
-	if Token("abc") != Token("abc") {
-		t.Error("Token() should be deterministic for the same input")
+	first := Token("abc")
+	second := Token("abc")
+	if first != second {
+		t.Errorf("Token() = %q then %q, want the same digest for the same input", first, second)
 	}
 }
