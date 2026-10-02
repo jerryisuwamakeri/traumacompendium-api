@@ -12,6 +12,7 @@ import (
 	"github.com/go-playground/validator/v10"
 
 	"github.com/traumacompendium/backend/internal/pkg/apperror"
+	"github.com/traumacompendium/backend/internal/pkg/i18n"
 )
 
 // envelope is the single JSON shape every response on this API uses,
@@ -72,41 +73,43 @@ func Fail(c *gin.Context, err error) {
 
 // BindJSON decodes and validates a request body into dst (via Gin's
 // binding, which runs go-playground/validator against the struct's
-// `binding` tags). On failure it writes a 400 with per-field messages and
-// returns false so the caller can simply `if !BindJSON(...) { return }`.
+// `binding` tags). On failure it writes a 400 with per-field messages —
+// localized per ResolveLocale(c), the same locale resolution the
+// learning endpoints use — and returns false so the caller can simply
+// `if !BindJSON(...) { return }`.
 func BindJSON(c *gin.Context, dst any) bool {
 	if err := c.ShouldBindJSON(dst); err != nil {
-		Fail(c, validationError(err))
+		Fail(c, validationError(err, ResolveLocale(c)))
 		return false
 	}
 	return true
 }
 
-func validationError(err error) *apperror.Error {
+func validationError(err error, locale string) *apperror.Error {
 	var verrs validator.ValidationErrors
 	if errors.As(err, &verrs) {
 		fields := make(map[string]string, len(verrs))
 		for _, fe := range verrs {
-			fields[fe.Field()] = fieldErrorMessage(fe)
+			fields[fe.Field()] = fieldErrorMessage(fe, locale)
 		}
 		return apperror.NewValidation("validation failed").WithFields(fields)
 	}
 	return apperror.NewBadRequest("could not parse request body")
 }
 
-func fieldErrorMessage(fe validator.FieldError) string {
+func fieldErrorMessage(fe validator.FieldError, locale string) string {
 	switch fe.Tag() {
 	case "required":
-		return "is required"
+		return i18n.T(locale, i18n.KeyRequired)
 	case "email":
-		return "must be a valid email address"
+		return i18n.T(locale, i18n.KeyEmail)
 	case "min":
-		return "is too short"
+		return i18n.T(locale, i18n.KeyTooShort)
 	case "max":
-		return "is too long"
+		return i18n.T(locale, i18n.KeyTooLong)
 	case "e164":
-		return "must be a valid phone number in international format, e.g. +2348012345678"
+		return i18n.T(locale, i18n.KeyInvalidPhone)
 	default:
-		return "is invalid"
+		return i18n.T(locale, i18n.KeyInvalid)
 	}
 }

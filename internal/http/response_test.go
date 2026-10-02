@@ -91,6 +91,34 @@ func TestBindJSON_ValidationFailure_ReturnsFieldErrors(t *testing.T) {
 	if body.Error.Fields["Email"] == "" {
 		t.Error("expected a field-level message for Email")
 	}
+	if body.Error.Fields["Email"] != "must be a valid email address" {
+		t.Errorf("Fields[Email] = %q, want the English message (no locale requested)", body.Error.Fields["Email"])
+	}
+}
+
+func TestBindJSON_ValidationFailure_HonorsLocaleQueryParam(t *testing.T) {
+	type input struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	req := httptest.NewRequest(http.MethodPost, "/?locale=fr", strings.NewReader(`{"email":"not-an-email"}`))
+	req.Header.Set("Content-Type", "application/json")
+	c.Request = req
+
+	var dst input
+	if BindJSON(c, &dst) {
+		t.Fatal("BindJSON() = true, want false for an invalid email")
+	}
+
+	var body envelope
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response body: %v", err)
+	}
+	if body.Error.Fields["Email"] != "doit être une adresse e-mail valide" {
+		t.Errorf("Fields[Email] = %q, want the French message for ?locale=fr", body.Error.Fields["Email"])
+	}
 }
 
 func TestBindJSON_Valid_ReturnsTrue(t *testing.T) {
