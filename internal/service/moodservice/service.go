@@ -13,6 +13,7 @@ import (
 
 	"github.com/traumacompendium/backend/internal/domain/mood"
 	"github.com/traumacompendium/backend/internal/pkg/apperror"
+	"github.com/traumacompendium/backend/internal/pkg/sanitize"
 )
 
 type Service struct {
@@ -40,7 +41,7 @@ func (s *Service) Create(ctx context.Context, userID string, in CreateInput) (*m
 		UserID:    userID,
 		Score:     in.Score,
 		Tags:      normalizeTags(in.Tags),
-		Note:      strings.TrimSpace(in.Note),
+		Note:      strings.TrimSpace(sanitize.StripHTML(in.Note)),
 		CreatedAt: s.now(),
 	}
 
@@ -85,7 +86,7 @@ func (s *Service) List(ctx context.Context, userID string, filter mood.ListFilte
 func normalizeTags(tags []string) []string {
 	out := make([]string, 0, len(tags))
 	for _, t := range tags {
-		t = strings.ToLower(strings.TrimSpace(t))
+		t = strings.ToLower(strings.TrimSpace(sanitize.StripHTML(t)))
 		if t != "" {
 			out = append(out, t)
 		}

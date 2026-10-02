@@ -12,6 +12,7 @@ import (
 
 	"github.com/traumacompendium/backend/internal/domain/user"
 	"github.com/traumacompendium/backend/internal/pkg/apperror"
+	"github.com/traumacompendium/backend/internal/pkg/sanitize"
 )
 
 type Service struct {
@@ -51,7 +52,7 @@ func (s *Service) UpdateProfile(ctx context.Context, userID string, in UpdatePro
 		return nil, apperror.NewInternal("could not update profile").WithCause(err)
 	}
 
-	u.FullName = strings.TrimSpace(in.FullName)
+	u.FullName = strings.TrimSpace(sanitize.StripHTML(in.FullName))
 	u.UpdatedAt = time.Now()
 
 	if err := s.users.Update(ctx, u); err != nil {

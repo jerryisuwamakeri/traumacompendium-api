@@ -12,6 +12,7 @@ require (
 	github.com/redis/go-redis/v9 v9.17.2
 	github.com/rs/zerolog v1.35.1
 	golang.org/x/crypto v0.57.0
+	golang.org/x/net v0.58.0
 )
 
 require (
@@ -31,7 +32,6 @@ require (
 	github.com/quic-go/quic-go v0.59.0 // indirect
 	github.com/ugorji/go/codec v1.3.1 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
-	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect

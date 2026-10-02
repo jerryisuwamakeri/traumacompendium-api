@@ -15,6 +15,7 @@ import (
 	"github.com/traumacompendium/backend/internal/pkg/apperror"
 	"github.com/traumacompendium/backend/internal/pkg/hash"
 	"github.com/traumacompendium/backend/internal/pkg/otp"
+	"github.com/traumacompendium/backend/internal/pkg/sanitize"
 )
 
 type RegisterInput struct {
@@ -38,7 +39,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*user.User, e
 	now := s.now()
 	u := &user.User{
 		ID:           uuid.NewString(),
-		FullName:     strings.TrimSpace(in.FullName),
+		FullName:     strings.TrimSpace(sanitize.StripHTML(in.FullName)),
 		Email:        strings.ToLower(strings.TrimSpace(in.Email)),
 		Phone:        strings.TrimSpace(in.Phone),
 		PasswordHash: passwordHash,

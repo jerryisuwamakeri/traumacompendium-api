@@ -14,6 +14,7 @@ import (
 
 	"github.com/traumacompendium/backend/internal/domain/journal"
 	"github.com/traumacompendium/backend/internal/pkg/apperror"
+	"github.com/traumacompendium/backend/internal/pkg/sanitize"
 )
 
 type Service struct {
@@ -35,8 +36,8 @@ func (s *Service) Create(ctx context.Context, userID string, in CreateInput) (*j
 	e := &journal.Entry{
 		ID:        uuid.NewString(),
 		UserID:    userID,
-		Title:     strings.TrimSpace(in.Title),
-		Content:   in.Content,
+		Title:     strings.TrimSpace(sanitize.StripHTML(in.Title)),
+		Content:   strings.TrimSpace(sanitize.StripHTML(in.Content)),
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
@@ -59,8 +60,8 @@ func (s *Service) Update(ctx context.Context, userID, entryID string, in UpdateI
 		return nil, mapNotFound(err)
 	}
 
-	e.Title = strings.TrimSpace(in.Title)
-	e.Content = in.Content
+	e.Title = strings.TrimSpace(sanitize.StripHTML(in.Title))
+	e.Content = strings.TrimSpace(sanitize.StripHTML(in.Content))
 	e.UpdatedAt = s.now()
 
 	if err := s.entries.Update(ctx, e); err != nil {

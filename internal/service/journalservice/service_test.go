@@ -24,6 +24,45 @@ func TestCreate_TrimsTitleAndPersists(t *testing.T) {
 	}
 }
 
+func TestCreate_StripsHTMLFromTitleAndContent(t *testing.T) {
+	svc := New(fakes.NewJournalRepo())
+
+	e, err := svc.Create(context.Background(), "user-1", CreateInput{
+		Title:   `<script>alert(1)</script>My day`,
+		Content: `Today was <b>hard</b> but okay.`,
+	})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	if e.Title != "My day" {
+		t.Errorf("Title = %q, want HTML stripped", e.Title)
+	}
+	if e.Content != "Today was hard but okay." {
+		t.Errorf("Content = %q, want HTML stripped", e.Content)
+	}
+}
+
+func TestUpdate_StripsHTMLFromTitleAndContent(t *testing.T) {
+	svc := New(fakes.NewJournalRepo())
+	ctx := context.Background()
+
+	e, err := svc.Create(ctx, "user-1", CreateInput{Title: "Old", Content: "old"})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	updated, err := svc.Update(ctx, "user-1", e.ID, UpdateInput{
+		Title:   `<img src=x onerror="alert(1)">New title`,
+		Content: "New content",
+	})
+	if err != nil {
+		t.Fatalf("Update() error = %v", err)
+	}
+	if updated.Title != "New title" {
+		t.Errorf("Title = %q, want HTML stripped", updated.Title)
+	}
+}
+
 func TestGet_WrongUser_ReturnsNotFound(t *testing.T) {
 	svc := New(fakes.NewJournalRepo())
 	ctx := context.Background()

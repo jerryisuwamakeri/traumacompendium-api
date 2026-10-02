@@ -35,6 +35,21 @@ func TestCreate_NormalizesTagsAndPersists(t *testing.T) {
 	}
 }
 
+func TestCreate_StripsHTMLFromNote(t *testing.T) {
+	svc := New(fakes.NewMoodRepo())
+
+	e, err := svc.Create(context.Background(), "user-1", CreateInput{
+		Score: 3,
+		Note:  `<script>alert(document.cookie)</script>Feeling okay today`,
+	})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	if e.Note != "Feeling okay today" {
+		t.Errorf("Note = %q, want HTML stripped", e.Note)
+	}
+}
+
 func TestCreate_RejectsOutOfRangeScore(t *testing.T) {
 	svc := New(fakes.NewMoodRepo())
 
