@@ -38,6 +38,7 @@ type Config struct {
 	Translate TranslateConfig
 	AI        AIConfig
 	Push      PushConfig
+	Paystack  PaystackConfig
 	HTTP      HTTPConfig
 }
 
@@ -154,6 +155,18 @@ type PushConfig struct {
 	ServerKey string
 }
 
+// PaystackConfig configures the Premium-subscription payment
+// integration. Mode mirrors TermiiConfig.Mode: sandbox fabricates a
+// successful checkout/verification instead of calling Paystack. The
+// same SecretKey authenticates both outbound API calls and inbound
+// webhook signatures (see paystack.VerifyWebhookSignature) — Paystack
+// doesn't use a separate webhook secret the way some providers do.
+type PaystackConfig struct {
+	Mode      Mode
+	BaseURL   string
+	SecretKey string
+}
+
 type HTTPConfig struct {
 	AllowedOrigins         []string
 	RateLimitPerMinute     int
@@ -241,6 +254,11 @@ func Load() (*Config, error) {
 			BaseURL:   getEnv("PUSH_BASE_URL", "https://fcm.googleapis.com"),
 			ServerKey: getEnv("PUSH_SERVER_KEY", ""),
 		},
+		Paystack: PaystackConfig{
+			Mode:      Mode(getEnv("PAYSTACK_MODE", string(ModeSandbox))),
+			BaseURL:   getEnv("PAYSTACK_BASE_URL", "https://api.paystack.co"),
+			SecretKey: getEnv("PAYSTACK_SECRET_KEY", ""),
+		},
 		HTTP: HTTPConfig{
 			AllowedOrigins:         splitAndTrim(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")),
 			RateLimitPerMinute:     getEnvAsInt("RATE_LIMIT_PER_MINUTE", 120),
@@ -296,6 +314,9 @@ func (c *Config) validate() error {
 		}
 		if c.Push.Mode == ModeProduction && c.Push.ServerKey == "" {
 			missing = append(missing, "PUSH_SERVER_KEY")
+		}
+		if c.Paystack.Mode == ModeProduction && c.Paystack.SecretKey == "" {
+			missing = append(missing, "PAYSTACK_SECRET_KEY")
 		}
 	}
 

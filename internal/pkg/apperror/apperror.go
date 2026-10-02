@@ -24,6 +24,7 @@ const (
 	CodeTooManyRequests Code = "too_many_requests"
 	CodeInternal        Code = "internal_error"
 	CodeUnprocessable   Code = "unprocessable_entity"
+	CodePaymentRequired Code = "payment_required"
 )
 
 // Error is an application-level error carrying everything the HTTP layer
@@ -96,6 +97,12 @@ func NewUnprocessable(message string) *Error {
 
 func NewTooManyRequests(message string) *Error {
 	return new(http.StatusTooManyRequests, CodeTooManyRequests, message)
+}
+
+// NewPaymentRequired signals a premium-gated feature the caller's
+// current plan doesn't cover (see billingservice.IsPremium).
+func NewPaymentRequired(message string) *Error {
+	return new(http.StatusPaymentRequired, CodePaymentRequired, message)
 }
 
 func NewInternal(message string) *Error {
