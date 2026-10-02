@@ -5,15 +5,34 @@ import (
 	"github.com/traumacompendium/backend/internal/service/learningservice"
 )
 
+// TranslationResponse mirrors learning.Translation: which locale the
+// content actually came back in (after fallback) and whether it's an
+// unreviewed draft translation — see learning.Translation's doc comment.
+// Embedded into every response type that renders translatable content,
+// so a frontend can show a "draft translation" notice instead of
+// presenting unreviewed copy as finished.
+type TranslationResponse struct {
+	Locale      string `json:"locale"`
+	NeedsReview bool   `json:"needs_review"`
+}
+
+func newTranslationResponse(t learning.Translation) TranslationResponse {
+	return TranslationResponse{Locale: t.Locale, NeedsReview: t.NeedsReview}
+}
+
 type LevelResponse struct {
 	ID          string `json:"id"`
 	Number      int    `json:"number"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	TranslationResponse
 }
 
 func NewLevelResponse(l learning.Level) LevelResponse {
-	return LevelResponse{ID: l.ID, Number: l.Number, Name: l.Name, Description: l.Description}
+	return LevelResponse{
+		ID: l.ID, Number: l.Number, Name: l.Name, Description: l.Description,
+		TranslationResponse: newTranslationResponse(l.Translation),
+	}
 }
 
 func NewLevelResponses(levels []learning.Level) []LevelResponse {
@@ -30,10 +49,14 @@ type LessonResponse struct {
 	Title      string `json:"title"`
 	Content    string `json:"content"`
 	OrderIndex int    `json:"order_index"`
+	TranslationResponse
 }
 
 func NewLessonResponse(l learning.Lesson) LessonResponse {
-	return LessonResponse{ID: l.ID, LevelID: l.LevelID, Title: l.Title, Content: l.Content, OrderIndex: l.OrderIndex}
+	return LessonResponse{
+		ID: l.ID, LevelID: l.LevelID, Title: l.Title, Content: l.Content, OrderIndex: l.OrderIndex,
+		TranslationResponse: newTranslationResponse(l.Translation),
+	}
 }
 
 func NewLessonResponses(lessons []learning.Lesson) []LessonResponse {
@@ -56,6 +79,7 @@ type QuizQuestionResponse struct {
 	ID      string               `json:"id"`
 	Text    string               `json:"text"`
 	Options []QuizOptionResponse `json:"options"`
+	TranslationResponse
 }
 
 type QuizResponse struct {
@@ -71,7 +95,10 @@ func NewQuizResponse(quiz learning.Quiz, questions []learning.Question) QuizResp
 		for j, o := range q.Options {
 			opts[j] = QuizOptionResponse{ID: o.ID, Text: o.Text}
 		}
-		qs[i] = QuizQuestionResponse{ID: q.ID, Text: q.Text, Options: opts}
+		qs[i] = QuizQuestionResponse{
+			ID: q.ID, Text: q.Text, Options: opts,
+			TranslationResponse: newTranslationResponse(q.Translation),
+		}
 	}
 	return QuizResponse{ID: quiz.ID, LessonID: quiz.LessonID, Questions: qs}
 }
@@ -101,10 +128,14 @@ type BadgeResponse struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	IconKey     string `json:"icon_key"`
+	TranslationResponse
 }
 
 func NewBadgeResponse(b learning.Badge) BadgeResponse {
-	return BadgeResponse{ID: b.ID, Name: b.Name, Description: b.Description, IconKey: b.IconKey}
+	return BadgeResponse{
+		ID: b.ID, Name: b.Name, Description: b.Description, IconKey: b.IconKey,
+		TranslationResponse: newTranslationResponse(b.Translation),
+	}
 }
 
 func NewBadgeResponses(badges []learning.Badge) []BadgeResponse {
