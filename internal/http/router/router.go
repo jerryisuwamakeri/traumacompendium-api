@@ -44,6 +44,7 @@ func New(deps Dependencies) *gin.Engine {
 		middleware.RequestID(),
 		middleware.Recovery(deps.Logger),
 		middleware.Logging(deps.Logger),
+		middleware.SecurityHeaders(),
 		middleware.CORS(deps.Config.HTTP.AllowedOrigins),
 	)
 
