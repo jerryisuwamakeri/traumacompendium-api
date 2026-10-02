@@ -27,15 +27,16 @@ const (
 // subsystem. It is constructed once at startup via Load and passed down
 // explicitly to every component that needs it — no global state.
 type Config struct {
-	App      AppConfig
-	Database DatabaseConfig
-	Redis    RedisConfig
-	JWT      JWTConfig
-	OTP      OTPConfig
-	Termii   TermiiConfig
-	SMTP     SMTPConfig
-	TTS      TTSConfig
-	HTTP     HTTPConfig
+	App       AppConfig
+	Database  DatabaseConfig
+	Redis     RedisConfig
+	JWT       JWTConfig
+	OTP       OTPConfig
+	Termii    TermiiConfig
+	SMTP      SMTPConfig
+	TTS       TTSConfig
+	Translate TranslateConfig
+	HTTP      HTTPConfig
 }
 
 type AppConfig struct {
@@ -117,6 +118,18 @@ type TTSConfig struct {
 	APIKey  string
 }
 
+// TranslateConfig configures the content-translation integration used by
+// cmd/translate-content to regenerate seed translations. Mode mirrors
+// TTSConfig.Mode: sandbox returns a tagged placeholder instead of calling
+// a real provider. This is never wired into the live HTTP API — content
+// translation is a build-time/content-pipeline action, not a per-request
+// concern.
+type TranslateConfig struct {
+	Mode    Mode
+	BaseURL string
+	APIKey  string
+}
+
 type HTTPConfig struct {
 	AllowedOrigins         []string
 	RateLimitPerMinute     int
@@ -188,6 +201,11 @@ func Load() (*Config, error) {
 			BaseURL: getEnv("TTS_BASE_URL", "https://texttospeech.googleapis.com"),
 			APIKey:  getEnv("TTS_API_KEY", ""),
 		},
+		Translate: TranslateConfig{
+			Mode:    Mode(getEnv("TRANSLATE_MODE", string(ModeSandbox))),
+			BaseURL: getEnv("TRANSLATE_BASE_URL", "https://translation.googleapis.com"),
+			APIKey:  getEnv("TRANSLATE_API_KEY", ""),
+		},
 		HTTP: HTTPConfig{
 			AllowedOrigins:         splitAndTrim(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")),
 			RateLimitPerMinute:     getEnvAsInt("RATE_LIMIT_PER_MINUTE", 120),
@@ -234,6 +252,9 @@ func (c *Config) validate() error {
 		}
 		if c.TTS.Mode == ModeProduction && c.TTS.APIKey == "" {
 			missing = append(missing, "TTS_API_KEY")
+		}
+		if c.Translate.Mode == ModeProduction && c.Translate.APIKey == "" {
+			missing = append(missing, "TRANSLATE_API_KEY")
 		}
 	}
 
