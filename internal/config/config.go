@@ -37,6 +37,7 @@ type Config struct {
 	TTS       TTSConfig
 	Translate TranslateConfig
 	AI        AIConfig
+	Push      PushConfig
 	HTTP      HTTPConfig
 }
 
@@ -142,6 +143,17 @@ type AIConfig struct {
 	Model   string
 }
 
+// PushConfig configures the mobile push-notification integration (FCM).
+// Mode mirrors TermiiConfig.Mode: sandbox logs the notification instead
+// of dialing out. See internal/notification/push's package doc for why
+// this targets FCM's legacy server-key endpoint rather than the newer
+// OAuth2 HTTP v1 API.
+type PushConfig struct {
+	Mode      Mode
+	BaseURL   string
+	ServerKey string
+}
+
 type HTTPConfig struct {
 	AllowedOrigins         []string
 	RateLimitPerMinute     int
@@ -224,6 +236,11 @@ func Load() (*Config, error) {
 			APIKey:  getEnv("AI_API_KEY", ""),
 			Model:   getEnv("AI_MODEL", "gpt-4o-mini"),
 		},
+		Push: PushConfig{
+			Mode:      Mode(getEnv("PUSH_MODE", string(ModeSandbox))),
+			BaseURL:   getEnv("PUSH_BASE_URL", "https://fcm.googleapis.com"),
+			ServerKey: getEnv("PUSH_SERVER_KEY", ""),
+		},
 		HTTP: HTTPConfig{
 			AllowedOrigins:         splitAndTrim(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")),
 			RateLimitPerMinute:     getEnvAsInt("RATE_LIMIT_PER_MINUTE", 120),
@@ -276,6 +293,9 @@ func (c *Config) validate() error {
 		}
 		if c.AI.Mode == ModeProduction && c.AI.APIKey == "" {
 			missing = append(missing, "AI_API_KEY")
+		}
+		if c.Push.Mode == ModeProduction && c.Push.ServerKey == "" {
+			missing = append(missing, "PUSH_SERVER_KEY")
 		}
 	}
 
