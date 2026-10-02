@@ -137,7 +137,7 @@ func buildServer(cfg *config.Config, log zerolog.Logger, db *sql.DB, redisClient
 		User:      handler.NewUserHandler(userSvc),
 		Journal:   handler.NewJournalHandler(journalSvc),
 		Mood:      handler.NewMoodHandler(moodSvc),
-		Learning:  handler.NewLearningHandler(learningSvc),
+		Learning:  handler.NewLearningHandler(learningSvc, billingSvc),
 		SafeReach: handler.NewSafeReachHandler(safeReachSvc, redisClient, cfg.HTTP.AllowedOrigins, log),
 		Community: handler.NewCommunityHandler(communitySvc),
 		Billing:   handler.NewBillingHandler(billingSvc),

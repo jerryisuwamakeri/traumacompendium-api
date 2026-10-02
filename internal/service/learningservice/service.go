@@ -38,6 +38,18 @@ func (s *Service) ListLevels(ctx context.Context, locale learning.Locale) ([]lea
 	return levels, nil
 }
 
+// GetLevel is used by the HTTP layer to check a level's Number before
+// deciding whether its content requires Premium (see
+// handler.LearningHandler's premium-gating helpers) — level/badge
+// metadata itself stays free to browse; only lesson content is gated.
+func (s *Service) GetLevel(ctx context.Context, id string, locale learning.Locale) (learning.Level, error) {
+	level, err := s.content.FindLevel(ctx, id, resolveLocale(locale))
+	if err != nil {
+		return learning.Level{}, mapContentNotFound(err)
+	}
+	return level, nil
+}
+
 func (s *Service) ListLessons(ctx context.Context, levelID string, locale learning.Locale) ([]learning.Lesson, error) {
 	locale = resolveLocale(locale)
 

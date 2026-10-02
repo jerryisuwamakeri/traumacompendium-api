@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -8,15 +9,25 @@ import (
 	apphttp "github.com/traumacompendium/backend/internal/http"
 	"github.com/traumacompendium/backend/internal/http/dto"
 	"github.com/traumacompendium/backend/internal/http/middleware"
+	"github.com/traumacompendium/backend/internal/pkg/apperror"
 	"github.com/traumacompendium/backend/internal/service/learningservice"
 )
 
-type LearningHandler struct {
-	svc *learningservice.Service
+// PremiumChecker is the one thing this handler needs from billing — a
+// narrow interface (billingservice.Service satisfies it with no
+// adapter) so this package doesn't depend on billing's full surface
+// just to gate Levels 2-6.
+type PremiumChecker interface {
+	IsPremium(ctx context.Context, userID string) (bool, error)
 }
 
-func NewLearningHandler(svc *learningservice.Service) *LearningHandler {
-	return &LearningHandler{svc: svc}
+type LearningHandler struct {
+	svc     *learningservice.Service
+	billing PremiumChecker
+}
+
+func NewLearningHandler(svc *learningservice.Service, billing PremiumChecker) *LearningHandler {
+	return &LearningHandler{svc: svc, billing: billing}
 }
 
 // GET /api/v1/learning/levels?locale=yo
@@ -31,7 +42,15 @@ func (h *LearningHandler) ListLevels(c *gin.Context) {
 
 // GET /api/v1/learning/levels/:id/lessons?locale=yo
 func (h *LearningHandler) ListLessons(c *gin.Context) {
-	lessons, err := h.svc.ListLessons(c.Request.Context(), c.Param("id"), apphttp.ResolveLocale(c))
+	locale := apphttp.ResolveLocale(c)
+	levelID := c.Param("id")
+
+	if err := h.checkLevelAccess(c, levelID, locale); err != nil {
+		apphttp.Fail(c, err)
+		return
+	}
+
+	lessons, err := h.svc.ListLessons(c.Request.Context(), levelID, locale)
 	if err != nil {
 		apphttp.Fail(c, err)
 		return
@@ -41,8 +60,14 @@ func (h *LearningHandler) ListLessons(c *gin.Context) {
 
 // GET /api/v1/learning/lessons/:id?locale=yo
 func (h *LearningHandler) GetLesson(c *gin.Context) {
-	lesson, err := h.svc.GetLesson(c.Request.Context(), c.Param("id"), apphttp.ResolveLocale(c))
+	locale := apphttp.ResolveLocale(c)
+
+	lesson, err := h.svc.GetLesson(c.Request.Context(), c.Param("id"), locale)
 	if err != nil {
+		apphttp.Fail(c, err)
+		return
+	}
+	if err := h.checkLevelAccess(c, lesson.LevelID, locale); err != nil {
 		apphttp.Fail(c, err)
 		return
 	}
@@ -51,7 +76,14 @@ func (h *LearningHandler) GetLesson(c *gin.Context) {
 
 // POST /api/v1/learning/lessons/:id/complete?locale=yo
 func (h *LearningHandler) CompleteLesson(c *gin.Context) {
-	result, err := h.svc.CompleteLesson(c.Request.Context(), middleware.UserID(c), c.Param("id"), apphttp.ResolveLocale(c))
+	locale := apphttp.ResolveLocale(c)
+
+	if err := h.checkLessonAccess(c, c.Param("id"), locale); err != nil {
+		apphttp.Fail(c, err)
+		return
+	}
+
+	result, err := h.svc.CompleteLesson(c.Request.Context(), middleware.UserID(c), c.Param("id"), locale)
 	if err != nil {
 		apphttp.Fail(c, err)
 		return
@@ -61,7 +93,14 @@ func (h *LearningHandler) CompleteLesson(c *gin.Context) {
 
 // GET /api/v1/learning/lessons/:id/quiz?locale=yo
 func (h *LearningHandler) GetQuiz(c *gin.Context) {
-	quiz, questions, err := h.svc.GetQuiz(c.Request.Context(), c.Param("id"), apphttp.ResolveLocale(c))
+	locale := apphttp.ResolveLocale(c)
+
+	if err := h.checkLessonAccess(c, c.Param("id"), locale); err != nil {
+		apphttp.Fail(c, err)
+		return
+	}
+
+	quiz, questions, err := h.svc.GetQuiz(c.Request.Context(), c.Param("id"), locale)
 	if err != nil {
 		apphttp.Fail(c, err)
 		return
@@ -77,6 +116,12 @@ func (h *LearningHandler) GetQuiz(c *gin.Context) {
 func (h *LearningHandler) SubmitQuiz(c *gin.Context) {
 	var req dto.SubmitQuizRequest
 	if !apphttp.BindJSON(c, &req) {
+		return
+	}
+
+	locale := apphttp.ResolveLocale(c)
+	if err := h.checkLessonAccess(c, c.Param("id"), locale); err != nil {
+		apphttp.Fail(c, err)
 		return
 	}
 
@@ -110,10 +155,52 @@ func (h *LearningHandler) ListBadges(c *gin.Context) {
 
 // GET /api/v1/learning/lessons/:id/audio?locale=yo
 func (h *LearningHandler) GetLessonAudio(c *gin.Context) {
-	audio, err := h.svc.GetLessonAudio(c.Request.Context(), c.Param("id"), apphttp.ResolveLocale(c))
+	locale := apphttp.ResolveLocale(c)
+
+	if err := h.checkLessonAccess(c, c.Param("id"), locale); err != nil {
+		apphttp.Fail(c, err)
+		return
+	}
+
+	audio, err := h.svc.GetLessonAudio(c.Request.Context(), c.Param("id"), locale)
 	if err != nil {
 		apphttp.Fail(c, err)
 		return
 	}
 	c.Data(http.StatusOK, audio.ContentType, audio.Data)
+}
+
+// checkLevelAccess is the premium gate: Beginner (level 1) stays free so
+// the brief's "roadmap is browsable" holds, but every level beyond it
+// requires an active Premium subscription (see the brief's Premium tier:
+// "Full learning paths"). Level/badge metadata (ListLevels, GetProgress,
+// ListBadges) is never gated — only the lesson text/quiz content itself.
+func (h *LearningHandler) checkLevelAccess(c *gin.Context, levelID, locale string) error {
+	level, err := h.svc.GetLevel(c.Request.Context(), levelID, locale)
+	if err != nil {
+		return err
+	}
+	if level.Number <= 1 {
+		return nil
+	}
+
+	premium, err := h.billing.IsPremium(c.Request.Context(), middleware.UserID(c))
+	if err != nil {
+		return apperror.NewInternal("could not check subscription").WithCause(err)
+	}
+	if !premium {
+		return apperror.NewPaymentRequired("this level's content is a Premium feature")
+	}
+	return nil
+}
+
+// checkLessonAccess resolves a lesson to its level and applies the same
+// gate — used by every endpoint that only has a lesson ID, not a level
+// ID, to work with (quiz, completion, audio).
+func (h *LearningHandler) checkLessonAccess(c *gin.Context, lessonID, locale string) error {
+	lesson, err := h.svc.GetLesson(c.Request.Context(), lessonID, locale)
+	if err != nil {
+		return err
+	}
+	return h.checkLevelAccess(c, lesson.LevelID, locale)
 }
