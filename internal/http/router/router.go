@@ -22,16 +22,17 @@ import (
 // Dependencies bundles everything the router needs to wire routes to
 // handlers and attach the right middleware to each group.
 type Dependencies struct {
-	Config   *config.Config
-	Logger   zerolog.Logger
-	Redis    *redis.Client
-	JWT      *jwtutil.Manager
-	Auth     *handler.AuthHandler
-	User     *handler.UserHandler
-	Journal  *handler.JournalHandler
-	Mood     *handler.MoodHandler
-	Learning *handler.LearningHandler
-	Health   *handler.HealthHandler
+	Config    *config.Config
+	Logger    zerolog.Logger
+	Redis     *redis.Client
+	JWT       *jwtutil.Manager
+	Auth      *handler.AuthHandler
+	User      *handler.UserHandler
+	Journal   *handler.JournalHandler
+	Mood      *handler.MoodHandler
+	Learning  *handler.LearningHandler
+	SafeReach *handler.SafeReachHandler
+	Health    *handler.HealthHandler
 }
 
 func New(deps Dependencies) *gin.Engine {
@@ -59,6 +60,7 @@ func New(deps Dependencies) *gin.Engine {
 	registerJournalRoutes(api, deps)
 	registerMoodRoutes(api, deps)
 	registerLearningRoutes(api, deps)
+	registerSafeReachRoutes(api, deps)
 
 	return r
 }
@@ -125,4 +127,29 @@ func registerLearningRoutes(api *gin.RouterGroup, deps Dependencies) {
 	learning.POST("/quizzes/:id/submit", deps.Learning.SubmitQuiz)
 	learning.GET("/progress", deps.Learning.GetProgress)
 	learning.GET("/badges", deps.Learning.ListBadges)
+}
+
+func registerSafeReachRoutes(api *gin.RouterGroup, deps Dependencies) {
+	safereach := api.Group("/safereach")
+
+	// Public, token-gated — registered before RequireAuth is attached to
+	// the group below. A gin group's Use() only affects routes
+	// registered after the call, so this one route alone skips it.
+	safereach.GET("/public/alerts/:id", deps.SafeReach.PublicView)
+
+	safereach.Use(middleware.RequireAuth(deps.JWT))
+
+	safereach.POST("/contacts", deps.SafeReach.RegisterContact)
+	safereach.GET("/contacts", deps.SafeReach.ListContacts)
+	safereach.DELETE("/contacts/:id", deps.SafeReach.DeleteContact)
+
+	safereach.POST("/alerts", middleware.Idempotency(deps.Redis, deps.Config.HTTP.IdempotencyTTL, deps.Logger), deps.SafeReach.TriggerAlert)
+	safereach.GET("/alerts", deps.SafeReach.ListAlerts)
+	safereach.GET("/alerts/:id", deps.SafeReach.GetAlert)
+	safereach.POST("/alerts/:id/cancel", deps.SafeReach.CancelAlert)
+	safereach.POST("/alerts/:id/resolve", deps.SafeReach.ResolveAlert)
+	safereach.POST("/alerts/:id/location", deps.SafeReach.RecordLocation)
+	safereach.GET("/alerts/:id/stream", deps.SafeReach.Stream)
+
+	safereach.POST("/device-tokens", deps.SafeReach.RegisterDeviceToken)
 }

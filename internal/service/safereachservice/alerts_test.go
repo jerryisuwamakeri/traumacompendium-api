@@ -114,6 +114,30 @@ func TestCancelAlert_ClosesAlert_AndIsIdempotent(t *testing.T) {
 	}
 }
 
+func TestGetAlert_WrongUser_ReturnsNotFound(t *testing.T) {
+	svc := newTestService()
+	ctx := context.Background()
+
+	a, err := svc.TriggerAlert(ctx, "owner", TriggerAlertInput{Level: safereach.LevelCheckIn})
+	if err != nil {
+		t.Fatalf("TriggerAlert() error = %v", err)
+	}
+
+	got, err := svc.GetAlert(ctx, "owner", a.ID)
+	if err != nil {
+		t.Fatalf("GetAlert() by owner error = %v", err)
+	}
+	if got.ID != a.ID {
+		t.Errorf("GetAlert() ID = %q, want %q", got.ID, a.ID)
+	}
+
+	_, err = svc.GetAlert(ctx, "intruder", a.ID)
+	appErr, ok := apperror.As(err)
+	if !ok || appErr.Code != apperror.CodeNotFound {
+		t.Errorf("GetAlert() by non-owner error = %v, want not_found", err)
+	}
+}
+
 func TestResolveAlert_WrongUser_ReturnsNotFound(t *testing.T) {
 	svc := newTestService()
 	ctx := context.Background()

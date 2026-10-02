@@ -20,6 +20,7 @@ import (
 	"github.com/traumacompendium/backend/internal/http/handler"
 	"github.com/traumacompendium/backend/internal/http/router"
 	"github.com/traumacompendium/backend/internal/notification/email"
+	"github.com/traumacompendium/backend/internal/notification/push"
 	"github.com/traumacompendium/backend/internal/notification/sms"
 	"github.com/traumacompendium/backend/internal/notification/tts"
 	"github.com/traumacompendium/backend/internal/pkg/jwtutil"
@@ -31,6 +32,7 @@ import (
 	"github.com/traumacompendium/backend/internal/service/journalservice"
 	"github.com/traumacompendium/backend/internal/service/learningservice"
 	"github.com/traumacompendium/backend/internal/service/moodservice"
+	"github.com/traumacompendium/backend/internal/service/safereachservice"
 	"github.com/traumacompendium/backend/internal/service/userservice"
 	"github.com/traumacompendium/backend/migrations"
 )
@@ -88,29 +90,40 @@ func buildServer(cfg *config.Config, log zerolog.Logger, db *sql.DB, redisClient
 	learningContentRepo := mysql.NewLearningContentRepository(db)
 	learningProgressRepo := mysql.NewLearningProgressRepository(db)
 	learningAudioRepo := mysql.NewLearningAudioRepository(db)
+	safeReachContactRepo := mysql.NewSafeReachContactRepository(db)
+	safeReachAlertRepo := mysql.NewSafeReachAlertRepository(db)
+	deviceTokenRepo := mysql.NewDeviceTokenRepository(db)
 
 	jwtManager := jwtutil.NewManager(cfg.JWT)
 	emailSender := email.New(cfg.SMTP, log)
 	smsSender := sms.New(cfg.Termii, log)
 	ttsSynth := tts.New(cfg.TTS, log)
+	pushSender := push.New(cfg.Push, log)
+	publisher := cache.Publisher{Client: redisClient}
 
 	authSvc := authservice.New(userRepo, otpRepo, refreshTokenRepo, jwtManager, emailSender, smsSender, cfg.OTP, log)
 	userSvc := userservice.New(userRepo)
 	journalSvc := journalservice.New(journalRepo)
 	moodSvc := moodservice.New(moodRepo)
 	learningSvc := learningservice.New(learningContentRepo, learningProgressRepo, learningAudioRepo, ttsSynth)
+	safeReachSvc := safereachservice.New(
+		safeReachContactRepo, safeReachAlertRepo, deviceTokenRepo,
+		smsSender, emailSender, pushSender, publisher,
+		cfg.App.BaseURL, log,
+	)
 
 	deps := router.Dependencies{
-		Config:   cfg,
-		Logger:   log,
-		Redis:    redisClient,
-		JWT:      jwtManager,
-		Auth:     handler.NewAuthHandler(authSvc),
-		User:     handler.NewUserHandler(userSvc),
-		Journal:  handler.NewJournalHandler(journalSvc),
-		Mood:     handler.NewMoodHandler(moodSvc),
-		Learning: handler.NewLearningHandler(learningSvc),
-		Health:   handler.NewHealthHandler(db, redisClient),
+		Config:    cfg,
+		Logger:    log,
+		Redis:     redisClient,
+		JWT:       jwtManager,
+		Auth:      handler.NewAuthHandler(authSvc),
+		User:      handler.NewUserHandler(userSvc),
+		Journal:   handler.NewJournalHandler(journalSvc),
+		Mood:      handler.NewMoodHandler(moodSvc),
+		Learning:  handler.NewLearningHandler(learningSvc),
+		SafeReach: handler.NewSafeReachHandler(safeReachSvc, redisClient, cfg.HTTP.AllowedOrigins, log),
+		Health:    handler.NewHealthHandler(db, redisClient),
 	}
 
 	return &nethttp.Server{

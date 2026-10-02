@@ -150,6 +150,19 @@ func (s *Service) closeAlert(ctx context.Context, userID, alertID string, status
 	return a, nil
 }
 
+// GetAlert returns a single alert the caller owns — used both for a
+// plain "get alert detail" read and to check ownership before upgrading
+// the WebSocket live-location stream (an upgraded connection can't
+// return a normal JSON error response, so that check has to happen
+// first).
+func (s *Service) GetAlert(ctx context.Context, userID, alertID string) (*safereach.Alert, error) {
+	a, err := s.alerts.FindOwnedByID(ctx, alertID, userID)
+	if err != nil {
+		return nil, mapAlertNotFound(err)
+	}
+	return a, nil
+}
+
 type ListAlertsResult struct {
 	Alerts []*safereach.Alert
 	Total  int
