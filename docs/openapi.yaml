@@ -3,7 +3,8 @@ info:
   title: TraumaCompendium API
   description: >
     Phase 1 core foundation: authentication & profiles, the Beginner
-    learning level, journaling, and mood/trigger tracking.
+    learning level (with localized content in 8 languages and
+    text-to-speech lesson audio), journaling, and mood/trigger tracking.
   version: "1.0.0"
   contact:
     name: TraumaCompendium
@@ -343,6 +344,7 @@ paths:
       tags: [Learning]
       summary: List all 6 levels (only Level 1 has lesson content in Phase 1)
       security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/Locale" }]
       responses:
         "200":
           description: Levels
@@ -355,7 +357,9 @@ paths:
       tags: [Learning]
       summary: List lessons in a level
       security: [{ bearerAuth: [] }]
-      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { $ref: "#/components/parameters/Locale" }
       responses:
         "200":
           description: Lessons
@@ -369,7 +373,9 @@ paths:
       tags: [Learning]
       summary: Get a lesson
       security: [{ bearerAuth: [] }]
-      parameters: [{ $ref: "#/components/parameters/EntryId" }]
+      parameters:
+        - { $ref: "#/components/parameters/EntryId" }
+        - { $ref: "#/components/parameters/Locale" }
       responses:
         "200":
           description: Lesson
@@ -383,7 +389,9 @@ paths:
       tags: [Learning]
       summary: Mark a lesson complete; awards the level's badge on the completing request
       security: [{ bearerAuth: [] }]
-      parameters: [{ $ref: "#/components/parameters/EntryId" }]
+      parameters:
+        - { $ref: "#/components/parameters/EntryId" }
+        - { $ref: "#/components/parameters/Locale" }
       responses:
         "200":
           description: Completion result
@@ -397,7 +405,9 @@ paths:
       tags: [Learning]
       summary: Get a lesson's quiz (answer key never included)
       security: [{ bearerAuth: [] }]
-      parameters: [{ $ref: "#/components/parameters/EntryId" }]
+      parameters:
+        - { $ref: "#/components/parameters/EntryId" }
+        - { $ref: "#/components/parameters/Locale" }
       responses:
         "200":
           description: Quiz
@@ -405,6 +415,27 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/EnvelopeOf_Quiz" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /learning/lessons/{id}/audio:
+    get:
+      tags: [Learning]
+      summary: >
+        Get a lesson's text-to-speech audio. Synthesized and cached on
+        first request per (lesson, locale); served from cache after. In
+        TTS_MODE=sandbox this is a silent placeholder clip.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/EntryId" }
+        - { $ref: "#/components/parameters/Locale" }
+      responses:
+        "200":
+          description: Audio clip (audio/wav in sandbox mode, audio/mpeg in production)
+          content:
+            audio/mpeg: { schema: { type: string, format: binary } }
+            audio/wav: { schema: { type: string, format: binary } }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422":
+          description: Text-to-speech is not available for this lesson/locale combination
 
   /learning/quizzes/{id}/submit:
     post:
@@ -430,6 +461,7 @@ paths:
       tags: [Learning]
       summary: Per-level progress for the current user
       security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/Locale" }]
       responses:
         "200":
           description: Progress
@@ -442,6 +474,7 @@ paths:
       tags: [Learning]
       summary: Badges earned by the current user
       security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/Locale" }]
       responses:
         "200":
           description: Badges
@@ -470,6 +503,15 @@ components:
       name: offset
       in: query
       schema: { type: integer, minimum: 0, default: 0 }
+    Locale:
+      name: locale
+      in: query
+      description: >
+        One of en, pcm, yo, ha, ig, fr, sw, ar. Falls back to the
+        Accept-Language header, then to en, if omitted or unsupported —
+        never errors on an unrecognized value. Non-English content is
+        LLM-drafted and unreviewed; see each response's needs_review.
+      schema: { type: string, default: en }
     From:
       name: from
       in: query
@@ -653,22 +695,37 @@ components:
               tag: { type: string }
               count: { type: integer }
 
-    Level:
+    TranslationFields:
       type: object
+      description: >
+        Present on every translatable response. locale is what was
+        actually returned (after English fallback); needs_review is true
+        for any non-English row, since those are LLM-drafted and
+        unreviewed — see the Localization section of the README.
       properties:
-        id: { type: string, format: uuid }
-        number: { type: integer }
-        name: { type: string }
-        description: { type: string }
+        locale: { type: string }
+        needs_review: { type: boolean }
+
+    Level:
+      allOf:
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            number: { type: integer }
+            name: { type: string }
+            description: { type: string }
+        - $ref: "#/components/schemas/TranslationFields"
 
     Lesson:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        level_id: { type: string, format: uuid }
-        title: { type: string }
-        content: { type: string }
-        order_index: { type: integer }
+      allOf:
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            level_id: { type: string, format: uuid }
+            title: { type: string }
+            content: { type: string }
+            order_index: { type: integer }
+        - $ref: "#/components/schemas/TranslationFields"
 
     QuizOption:
       type: object
@@ -678,11 +735,13 @@ components:
         text: { type: string }
 
     QuizQuestion:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        text: { type: string }
-        options: { type: array, items: { $ref: "#/components/schemas/QuizOption" } }
+      allOf:
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            text: { type: string }
+            options: { type: array, items: { $ref: "#/components/schemas/QuizOption" } }
+        - $ref: "#/components/schemas/TranslationFields"
 
     Quiz:
       type: object
@@ -708,12 +767,14 @@ components:
         score_percent: { type: number }
 
     Badge:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        name: { type: string }
-        description: { type: string }
-        icon_key: { type: string }
+      allOf:
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+            description: { type: string }
+            icon_key: { type: string }
+        - $ref: "#/components/schemas/TranslationFields"
 
     CompleteLessonResult:
       type: object
