@@ -2,8 +2,6 @@ package mysql
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"errors"
 	"testing"
 	"time"
@@ -11,30 +9,19 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/traumacompendium/backend/internal/domain/safereach"
+	"github.com/traumacompendium/backend/internal/pkg/hash"
 )
-
-// testShareToken returns a share token the same shape the service layer
-// produces: base64.RawURLEncoding of 32 random bytes, 43 characters —
-// matching the share_token CHAR(43) column exactly.
-func testShareToken(t *testing.T) string {
-	t.Helper()
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		t.Fatalf("generate test share token: %v", err)
-	}
-	return base64.RawURLEncoding.EncodeToString(b)
-}
 
 func newTestAlert(t *testing.T, userID string) *safereach.Alert {
 	t.Helper()
 	return &safereach.Alert{
-		ID:          uuid.NewString(),
-		UserID:      userID,
-		Level:       safereach.LevelUrgent,
-		Status:      safereach.StatusActive,
-		Message:     "Need help getting home safely.",
-		ShareToken:  testShareToken(t),
-		TriggeredAt: time.Now().UTC().Truncate(time.Second),
+		ID:             uuid.NewString(),
+		UserID:         userID,
+		Level:          safereach.LevelUrgent,
+		Status:         safereach.StatusActive,
+		Message:        "Need help getting home safely.",
+		ShareTokenHash: hash.Token(uuid.NewString()),
+		TriggeredAt:    time.Now().UTC().Truncate(time.Second),
 	}
 }
 

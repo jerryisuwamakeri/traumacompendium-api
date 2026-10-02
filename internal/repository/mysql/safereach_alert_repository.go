@@ -21,10 +21,10 @@ func NewSafeReachAlertRepository(db *sql.DB) *SafeReachAlertRepository {
 
 func (r *SafeReachAlertRepository) Create(ctx context.Context, a *safereach.Alert) error {
 	const q = `
-		INSERT INTO safereach_alerts (id, user_id, level, status, message, share_token, triggered_at, resolved_at)
+		INSERT INTO safereach_alerts (id, user_id, level, status, message, share_token_hash, triggered_at, resolved_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	_, err := r.db.ExecContext(ctx, q, a.ID, a.UserID, a.Level, a.Status, a.Message, a.ShareToken, a.TriggeredAt, a.ResolvedAt)
+	_, err := r.db.ExecContext(ctx, q, a.ID, a.UserID, a.Level, a.Status, a.Message, a.ShareTokenHash, a.TriggeredAt, a.ResolvedAt)
 	if err != nil {
 		return fmt.Errorf("mysql: create safereach alert: %w", err)
 	}
@@ -55,7 +55,7 @@ func (r *SafeReachAlertRepository) Update(ctx context.Context, a *safereach.Aler
 
 func (r *SafeReachAlertRepository) FindByID(ctx context.Context, id string) (*safereach.Alert, error) {
 	const q = `
-		SELECT id, user_id, level, status, message, share_token, triggered_at, resolved_at
+		SELECT id, user_id, level, status, message, share_token_hash, triggered_at, resolved_at
 		FROM safereach_alerts
 		WHERE id = ?
 	`
@@ -64,7 +64,7 @@ func (r *SafeReachAlertRepository) FindByID(ctx context.Context, id string) (*sa
 
 func (r *SafeReachAlertRepository) FindOwnedByID(ctx context.Context, id, userID string) (*safereach.Alert, error) {
 	const q = `
-		SELECT id, user_id, level, status, message, share_token, triggered_at, resolved_at
+		SELECT id, user_id, level, status, message, share_token_hash, triggered_at, resolved_at
 		FROM safereach_alerts
 		WHERE id = ? AND user_id = ?
 	`
@@ -73,7 +73,7 @@ func (r *SafeReachAlertRepository) FindOwnedByID(ctx context.Context, id, userID
 
 func scanSafeReachAlert(row *sql.Row) (*safereach.Alert, error) {
 	var a safereach.Alert
-	err := row.Scan(&a.ID, &a.UserID, &a.Level, &a.Status, &a.Message, &a.ShareToken, &a.TriggeredAt, &a.ResolvedAt)
+	err := row.Scan(&a.ID, &a.UserID, &a.Level, &a.Status, &a.Message, &a.ShareTokenHash, &a.TriggeredAt, &a.ResolvedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, safereach.ErrAlertNotFound
@@ -96,7 +96,7 @@ func (r *SafeReachAlertRepository) List(ctx context.Context, userID string, filt
 	}
 
 	const listQ = `
-		SELECT id, user_id, level, status, message, share_token, triggered_at, resolved_at
+		SELECT id, user_id, level, status, message, share_token_hash, triggered_at, resolved_at
 		FROM safereach_alerts
 		WHERE user_id = ?
 		ORDER BY triggered_at DESC
@@ -111,7 +111,7 @@ func (r *SafeReachAlertRepository) List(ctx context.Context, userID string, filt
 	alerts := make([]*safereach.Alert, 0)
 	for rows.Next() {
 		var a safereach.Alert
-		if err := rows.Scan(&a.ID, &a.UserID, &a.Level, &a.Status, &a.Message, &a.ShareToken, &a.TriggeredAt, &a.ResolvedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.UserID, &a.Level, &a.Status, &a.Message, &a.ShareTokenHash, &a.TriggeredAt, &a.ResolvedAt); err != nil {
 			return nil, 0, fmt.Errorf("mysql: scan safereach alert: %w", err)
 		}
 		alerts = append(alerts, &a)

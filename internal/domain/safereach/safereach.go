@@ -60,19 +60,25 @@ type TrustedContact struct {
 	CreatedAt    time.Time
 }
 
-// Alert is one SafeReach emergency event. ShareToken gates the
+// Alert is one SafeReach emergency event. ShareTokenHash gates the
 // unauthenticated public view endpoint for as long as the alert stays
 // open; it stops granting access once the alert is cancelled or
 // resolved (see AlertRepository.Update).
+//
+// Only the hash is ever persisted — same posture as OTP codes and
+// refresh tokens (see internal/pkg/hash) — because the raw token is a
+// bearer credential for live location access; a database leak must not
+// hand that out. The raw value is generated once at alert-creation time,
+// embedded in the SMS/email/push message, and never stored.
 type Alert struct {
-	ID          string
-	UserID      string
-	Level       Level
-	Status      Status
-	Message     string
-	ShareToken  string
-	TriggeredAt time.Time
-	ResolvedAt  *time.Time
+	ID             string
+	UserID         string
+	Level          Level
+	Status         Status
+	Message        string
+	ShareTokenHash string
+	TriggeredAt    time.Time
+	ResolvedAt     *time.Time
 }
 
 func (a Alert) IsOpen() bool { return a.Status.IsOpen() }
@@ -107,7 +113,7 @@ type AlertRepository interface {
 	Update(ctx context.Context, a *Alert) error
 	// FindByID is unscoped — used by the public, token-gated view
 	// endpoint, which has no authenticated user to scope by and instead
-	// verifies the caller-supplied token against Alert.ShareToken itself.
+	// verifies the caller-supplied token against Alert.ShareTokenHash.
 	FindByID(ctx context.Context, id string) (*Alert, error)
 	// FindOwnedByID scopes the lookup to userID, for endpoints only the
 	// alert's owner may use (cancel, resolve, location updates).
