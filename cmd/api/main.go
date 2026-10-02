@@ -19,6 +19,7 @@ import (
 	"github.com/traumacompendium/backend/internal/config"
 	"github.com/traumacompendium/backend/internal/http/handler"
 	"github.com/traumacompendium/backend/internal/http/router"
+	"github.com/traumacompendium/backend/internal/notification/ai"
 	"github.com/traumacompendium/backend/internal/notification/email"
 	"github.com/traumacompendium/backend/internal/notification/push"
 	"github.com/traumacompendium/backend/internal/notification/sms"
@@ -29,6 +30,7 @@ import (
 	"github.com/traumacompendium/backend/internal/platform/logger"
 	"github.com/traumacompendium/backend/internal/repository/mysql"
 	"github.com/traumacompendium/backend/internal/service/authservice"
+	"github.com/traumacompendium/backend/internal/service/communityservice"
 	"github.com/traumacompendium/backend/internal/service/journalservice"
 	"github.com/traumacompendium/backend/internal/service/learningservice"
 	"github.com/traumacompendium/backend/internal/service/moodservice"
@@ -93,6 +95,9 @@ func buildServer(cfg *config.Config, log zerolog.Logger, db *sql.DB, redisClient
 	safeReachContactRepo := mysql.NewSafeReachContactRepository(db)
 	safeReachAlertRepo := mysql.NewSafeReachAlertRepository(db)
 	deviceTokenRepo := mysql.NewDeviceTokenRepository(db)
+	communityPostRepo := mysql.NewCommunityPostRepository(db)
+	communityCommentRepo := mysql.NewCommunityCommentRepository(db)
+	communityReportRepo := mysql.NewCommunityReportRepository(db)
 
 	jwtManager := jwtutil.NewManager(cfg.JWT)
 	emailSender := email.New(cfg.SMTP, log)
@@ -100,6 +105,7 @@ func buildServer(cfg *config.Config, log zerolog.Logger, db *sql.DB, redisClient
 	ttsSynth := tts.New(cfg.TTS, log)
 	pushSender := push.New(cfg.Push, log)
 	publisher := cache.Publisher{Client: redisClient}
+	aiClient := ai.New(cfg.AI, log)
 
 	authSvc := authservice.New(userRepo, otpRepo, refreshTokenRepo, jwtManager, emailSender, smsSender, cfg.OTP, log)
 	userSvc := userservice.New(userRepo)
@@ -111,6 +117,7 @@ func buildServer(cfg *config.Config, log zerolog.Logger, db *sql.DB, redisClient
 		smsSender, emailSender, pushSender, publisher,
 		cfg.App.BaseURL, log,
 	)
+	communitySvc := communityservice.New(communityPostRepo, communityCommentRepo, communityReportRepo, aiClient, log)
 
 	deps := router.Dependencies{
 		Config:    cfg,
@@ -123,6 +130,7 @@ func buildServer(cfg *config.Config, log zerolog.Logger, db *sql.DB, redisClient
 		Mood:      handler.NewMoodHandler(moodSvc),
 		Learning:  handler.NewLearningHandler(learningSvc),
 		SafeReach: handler.NewSafeReachHandler(safeReachSvc, redisClient, cfg.HTTP.AllowedOrigins, log),
+		Community: handler.NewCommunityHandler(communitySvc),
 		Health:    handler.NewHealthHandler(db, redisClient),
 	}
 

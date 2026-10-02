@@ -32,6 +32,7 @@ type Dependencies struct {
 	Mood      *handler.MoodHandler
 	Learning  *handler.LearningHandler
 	SafeReach *handler.SafeReachHandler
+	Community *handler.CommunityHandler
 	Health    *handler.HealthHandler
 }
 
@@ -61,6 +62,7 @@ func New(deps Dependencies) *gin.Engine {
 	registerMoodRoutes(api, deps)
 	registerLearningRoutes(api, deps)
 	registerSafeReachRoutes(api, deps)
+	registerCommunityRoutes(api, deps)
 
 	return r
 }
@@ -152,4 +154,22 @@ func registerSafeReachRoutes(api *gin.RouterGroup, deps Dependencies) {
 	safereach.GET("/alerts/:id/stream", deps.SafeReach.Stream)
 
 	safereach.POST("/device-tokens", deps.SafeReach.RegisterDeviceToken)
+}
+
+func registerCommunityRoutes(api *gin.RouterGroup, deps Dependencies) {
+	community := api.Group("/community")
+	community.Use(middleware.RequireAuth(deps.JWT))
+
+	community.POST("/posts", middleware.Idempotency(deps.Redis, deps.Config.HTTP.IdempotencyTTL, deps.Logger), deps.Community.CreatePost)
+	community.GET("/posts", deps.Community.ListFeed)
+	community.DELETE("/posts/:id", deps.Community.DeletePost)
+	community.POST("/posts/:id/comments", middleware.Idempotency(deps.Redis, deps.Config.HTTP.IdempotencyTTL, deps.Logger), deps.Community.CreateComment)
+	community.GET("/posts/:id/comments", deps.Community.ListComments)
+	community.DELETE("/comments/:id", deps.Community.DeleteComment)
+	community.POST("/reports", deps.Community.FileReport)
+
+	admin := api.Group("/admin/community")
+	admin.Use(middleware.RequireAuth(deps.JWT), middleware.RequireRole("admin"))
+	admin.GET("/reports", deps.Community.ListOpenReports)
+	admin.POST("/reports/:id/resolve", deps.Community.ResolveReport)
 }
