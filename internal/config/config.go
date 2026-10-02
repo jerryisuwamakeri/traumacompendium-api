@@ -36,6 +36,7 @@ type Config struct {
 	SMTP      SMTPConfig
 	TTS       TTSConfig
 	Translate TranslateConfig
+	AI        AIConfig
 	HTTP      HTTPConfig
 }
 
@@ -130,6 +131,17 @@ type TranslateConfig struct {
 	APIKey  string
 }
 
+// AIConfig configures the LLM integration used by the AI assistant
+// (chat) and community moderation (flagging). Mode mirrors
+// TTSConfig.Mode: sandbox returns a tagged placeholder / always-clean
+// moderation result instead of calling a real provider.
+type AIConfig struct {
+	Mode    Mode
+	BaseURL string
+	APIKey  string
+	Model   string
+}
+
 type HTTPConfig struct {
 	AllowedOrigins         []string
 	RateLimitPerMinute     int
@@ -206,6 +218,12 @@ func Load() (*Config, error) {
 			BaseURL: getEnv("TRANSLATE_BASE_URL", "https://translation.googleapis.com"),
 			APIKey:  getEnv("TRANSLATE_API_KEY", ""),
 		},
+		AI: AIConfig{
+			Mode:    Mode(getEnv("AI_MODE", string(ModeSandbox))),
+			BaseURL: getEnv("AI_BASE_URL", "https://api.openai.com"),
+			APIKey:  getEnv("AI_API_KEY", ""),
+			Model:   getEnv("AI_MODEL", "gpt-4o-mini"),
+		},
 		HTTP: HTTPConfig{
 			AllowedOrigins:         splitAndTrim(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")),
 			RateLimitPerMinute:     getEnvAsInt("RATE_LIMIT_PER_MINUTE", 120),
@@ -255,6 +273,9 @@ func (c *Config) validate() error {
 		}
 		if c.Translate.Mode == ModeProduction && c.Translate.APIKey == "" {
 			missing = append(missing, "TRANSLATE_API_KEY")
+		}
+		if c.AI.Mode == ModeProduction && c.AI.APIKey == "" {
+			missing = append(missing, "AI_API_KEY")
 		}
 	}
 
