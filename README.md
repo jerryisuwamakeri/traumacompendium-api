@@ -202,6 +202,21 @@ Supported locales: `en` (canonical), `pcm` (Nigerian Pidgin), `yo`
   a generic fallback) are also localized, via `internal/pkg/i18n`'s small
   catalog — independent of, and much narrower than, the content
   translations above.
+- **Regenerating translations**: `cmd/translate-content` is a standalone
+  CLI (not part of the running API — translating static content happens
+  ahead of time, not per-request) that calls a real translation
+  provider and upserts the result into the `*_translations` tables:
+  ```sh
+  go run ./cmd/translate-content --target sw              # only rows missing a sw translation
+  go run ./cmd/translate-content --target sw --force       # re-translate every sw row
+  ```
+  It uses the same `TRANSLATE_MODE` sandbox/production switch as
+  `TTS_MODE` (`internal/notification/translate`); sandbox writes a
+  tagged placeholder so the tool is exercisable without a provider key.
+  **Every row it writes is still `needs_review = true`, in both modes.**
+  Calling a real translation API instead of using an LLM-drafted seed
+  changes which machine produced the draft, not whether a human has
+  checked it — see the explanation above.
 
 ## Testing
 
