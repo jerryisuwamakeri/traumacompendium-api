@@ -22,15 +22,16 @@ import (
 // Dependencies bundles everything the router needs to wire routes to
 // handlers and attach the right middleware to each group.
 type Dependencies struct {
-	Config  *config.Config
-	Logger  zerolog.Logger
-	Redis   *redis.Client
-	JWT     *jwtutil.Manager
-	Auth    *handler.AuthHandler
-	User    *handler.UserHandler
-	Journal *handler.JournalHandler
-	Mood    *handler.MoodHandler
-	Health  *handler.HealthHandler
+	Config   *config.Config
+	Logger   zerolog.Logger
+	Redis    *redis.Client
+	JWT      *jwtutil.Manager
+	Auth     *handler.AuthHandler
+	User     *handler.UserHandler
+	Journal  *handler.JournalHandler
+	Mood     *handler.MoodHandler
+	Learning *handler.LearningHandler
+	Health   *handler.HealthHandler
 }
 
 func New(deps Dependencies) *gin.Engine {
@@ -56,6 +57,7 @@ func New(deps Dependencies) *gin.Engine {
 	registerUserRoutes(api, deps)
 	registerJournalRoutes(api, deps)
 	registerMoodRoutes(api, deps)
+	registerLearningRoutes(api, deps)
 
 	return r
 }
@@ -107,4 +109,18 @@ func registerMoodRoutes(api *gin.RouterGroup, deps Dependencies) {
 	mood.GET("/entries/:id", deps.Mood.Get)
 	mood.DELETE("/entries/:id", deps.Mood.Delete)
 	mood.GET("/summary", deps.Mood.Summary)
+}
+
+func registerLearningRoutes(api *gin.RouterGroup, deps Dependencies) {
+	learning := api.Group("/learning")
+	learning.Use(middleware.RequireAuth(deps.JWT))
+
+	learning.GET("/levels", deps.Learning.ListLevels)
+	learning.GET("/levels/:id/lessons", deps.Learning.ListLessons)
+	learning.GET("/lessons/:id", deps.Learning.GetLesson)
+	learning.POST("/lessons/:id/complete", deps.Learning.CompleteLesson)
+	learning.GET("/lessons/:id/quiz", deps.Learning.GetQuiz)
+	learning.POST("/quizzes/:id/submit", deps.Learning.SubmitQuiz)
+	learning.GET("/progress", deps.Learning.GetProgress)
+	learning.GET("/badges", deps.Learning.ListBadges)
 }

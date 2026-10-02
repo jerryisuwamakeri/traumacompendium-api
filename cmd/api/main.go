@@ -28,6 +28,7 @@ import (
 	"github.com/traumacompendium/backend/internal/repository/mysql"
 	"github.com/traumacompendium/backend/internal/service/authservice"
 	"github.com/traumacompendium/backend/internal/service/journalservice"
+	"github.com/traumacompendium/backend/internal/service/learningservice"
 	"github.com/traumacompendium/backend/internal/service/moodservice"
 	"github.com/traumacompendium/backend/internal/service/userservice"
 	"github.com/traumacompendium/backend/migrations"
@@ -83,6 +84,8 @@ func buildServer(cfg *config.Config, log zerolog.Logger, db *sql.DB, redisClient
 	refreshTokenRepo := mysql.NewRefreshTokenRepository(db)
 	journalRepo := mysql.NewJournalRepository(db)
 	moodRepo := mysql.NewMoodRepository(db)
+	learningContentRepo := mysql.NewLearningContentRepository(db)
+	learningProgressRepo := mysql.NewLearningProgressRepository(db)
 
 	jwtManager := jwtutil.NewManager(cfg.JWT)
 	emailSender := email.New(cfg.SMTP, log)
@@ -92,17 +95,19 @@ func buildServer(cfg *config.Config, log zerolog.Logger, db *sql.DB, redisClient
 	userSvc := userservice.New(userRepo)
 	journalSvc := journalservice.New(journalRepo)
 	moodSvc := moodservice.New(moodRepo)
+	learningSvc := learningservice.New(learningContentRepo, learningProgressRepo)
 
 	deps := router.Dependencies{
-		Config:  cfg,
-		Logger:  log,
-		Redis:   redisClient,
-		JWT:     jwtManager,
-		Auth:    handler.NewAuthHandler(authSvc),
-		User:    handler.NewUserHandler(userSvc),
-		Journal: handler.NewJournalHandler(journalSvc),
-		Mood:    handler.NewMoodHandler(moodSvc),
-		Health:  handler.NewHealthHandler(db, redisClient),
+		Config:   cfg,
+		Logger:   log,
+		Redis:    redisClient,
+		JWT:      jwtManager,
+		Auth:     handler.NewAuthHandler(authSvc),
+		User:     handler.NewUserHandler(userSvc),
+		Journal:  handler.NewJournalHandler(journalSvc),
+		Mood:     handler.NewMoodHandler(moodSvc),
+		Learning: handler.NewLearningHandler(learningSvc),
+		Health:   handler.NewHealthHandler(db, redisClient),
 	}
 
 	return &nethttp.Server{
