@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/traumacompendium/backend/internal/notification/email"
+	"github.com/traumacompendium/backend/internal/notification/push"
 	"github.com/traumacompendium/backend/internal/notification/sms"
 )
 
@@ -44,6 +45,25 @@ func (f *SMSSender) Send(_ context.Context, msg sms.Message) error {
 }
 
 func (f *SMSSender) Last() sms.Message {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.Sent[len(f.Sent)-1]
+}
+
+// PushSender mirrors EmailSender for the push.Sender interface.
+type PushSender struct {
+	mu   sync.Mutex
+	Sent []push.Message
+}
+
+func (f *PushSender) Send(_ context.Context, msg push.Message) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.Sent = append(f.Sent, msg)
+	return nil
+}
+
+func (f *PushSender) Last() push.Message {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.Sent[len(f.Sent)-1]
