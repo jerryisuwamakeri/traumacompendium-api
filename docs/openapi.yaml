@@ -1,0 +1,792 @@
+openapi: 3.0.3
+info:
+  title: TraumaCompendium API
+  description: >
+    Phase 1 core foundation: authentication & profiles, the Beginner
+    learning level, journaling, and mood/trigger tracking.
+  version: "1.0.0"
+  contact:
+    name: TraumaCompendium
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development
+
+tags:
+  - name: Auth
+  - name: Users
+  - name: Journal
+  - name: Mood
+  - name: Learning
+
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Create a new, unverified account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterRequest" }
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeOf_User"
+        "409": { $ref: "#/components/responses/Conflict" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+
+  /auth/verify-email:
+    post:
+      tags: [Auth]
+      summary: Verify an email OTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VerifyOTPRequest" }
+      responses:
+        "204": { description: Verified }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /auth/verify-phone:
+    post:
+      tags: [Auth]
+      summary: Verify a phone OTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VerifyOTPRequest" }
+      responses:
+        "204": { description: Verified }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /auth/resend-otp:
+    post:
+      tags: [Auth]
+      summary: Resend an OTP (rate-limited by a cooldown)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResendOTPRequest" }
+      responses:
+        "204": { description: Sent }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Sign in with email or phone + password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeOf_LoginResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Account suspended or email not yet verified
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotate a refresh token for a new access/refresh pair
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RefreshRequest" }
+      responses:
+        "200":
+          description: New token pair
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeOf_TokenPair" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke a refresh token (idempotent)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LogoutRequest" }
+      responses:
+        "204": { description: Logged out }
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request a password reset code (always 204, never reveals whether the email exists)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ForgotPasswordRequest" }
+      responses:
+        "204": { description: If an account exists, a reset code was sent }
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Reset a password with a code, revoking all existing sessions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResetPasswordRequest" }
+      responses:
+        "204": { description: Password reset }
+        "400": { $ref: "#/components/responses/ValidationError" }
+
+  /users/me:
+    get:
+      tags: [Users]
+      summary: Get the current user's profile
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeOf_User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    patch:
+      tags: [Users]
+      summary: Update the current user's display name
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateProfileRequest" }
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeOf_User" }
+
+  /journal/entries:
+    post:
+      tags: [Journal]
+      summary: Create a journal entry
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateJournalEntryRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeOf_JournalEntry" }
+    get:
+      tags: [Journal]
+      summary: List journal entries (paginated, optional date range)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
+      responses:
+        "200":
+          description: Entries
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PagedEnvelopeOf_JournalEntry" }
+
+  /journal/entries/{id}:
+    get:
+      tags: [Journal]
+      summary: Get a journal entry
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/EntryId" }]
+      responses:
+        "200":
+          description: Entry
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeOf_JournalEntry" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Journal]
+      summary: Update a journal entry
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/EntryId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateJournalEntryRequest" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeOf_JournalEntry" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Journal]
+      summary: Delete a journal entry (soft delete)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/EntryId" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /journal/export:
+    get:
+      tags: [Journal]
+      summary: Export the full journal history as JSON or CSV
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: format
+          in: query
+          schema: { type: string, enum: [json, csv], default: json }
+      responses:
+        "200":
+          description: Export file
+          content:
+            application/json: { schema: { type: array, items: { $ref: "#/components/schemas/JournalEntry" } } }
+            text/csv: { schema: { type: string } }
+
+  /mood/entries:
+    post:
+      tags: [Mood]
+      summary: Log a mood & trigger entry
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateMoodEntryRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeOf_MoodEntry" }
+    get:
+      tags: [Mood]
+      summary: List mood entries (paginated, optional date range)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
+      responses:
+        "200":
+          description: Entries
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PagedEnvelopeOf_MoodEntry" }
+
+  /mood/entries/{id}:
+    get:
+      tags: [Mood]
+      summary: Get a mood entry
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/EntryId" }]
+      responses:
+        "200":
+          description: Entry
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeOf_MoodEntry" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Mood]
+      summary: Delete a mood entry (soft delete)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/EntryId" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /mood/summary:
+    get:
+      tags: [Mood]
+      summary: Aggregate mood trend (average score, top triggers) over a date range
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
+      responses:
+        "200":
+          description: Summary (defaults to the trailing 30 days)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeOf_MoodSummary" }
+
+  /learning/levels:
+    get:
+      tags: [Learning]
+      summary: List all 6 levels (only Level 1 has lesson content in Phase 1)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Levels
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeOf_LevelList" }
+
+  /learning/levels/{id}/lessons:
+    get:
+      tags: [Learning]
+      summary: List lessons in a level
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200":
+          description: Lessons
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeOf_LessonList" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /learning/lessons/{id}:
+    get:
+      tags: [Learning]
+      summary: Get a lesson
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/EntryId" }]
+      responses:
+        "200":
+          description: Lesson
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeOf_Lesson" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /learning/lessons/{id}/complete:
+    post:
+      tags: [Learning]
+      summary: Mark a lesson complete; awards the level's badge on the completing request
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/EntryId" }]
+      responses:
+        "200":
+          description: Completion result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeOf_CompleteLessonResult" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /learning/lessons/{id}/quiz:
+    get:
+      tags: [Learning]
+      summary: Get a lesson's quiz (answer key never included)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/EntryId" }]
+      responses:
+        "200":
+          description: Quiz
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeOf_Quiz" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /learning/quizzes/{id}/submit:
+    post:
+      tags: [Learning]
+      summary: Submit answers for scoring (id is the lesson ID; not persisted)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/EntryId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubmitQuizRequest" }
+      responses:
+        "200":
+          description: Score
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeOf_QuizResult" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /learning/progress:
+    get:
+      tags: [Learning]
+      summary: Per-level progress for the current user
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Progress
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeOf_LevelProgressList" }
+
+  /learning/badges:
+    get:
+      tags: [Learning]
+      summary: Badges earned by the current user
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Badges
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeOf_BadgeList" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    EntryId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Offset:
+      name: offset
+      in: query
+      schema: { type: integer, minimum: 0, default: 0 }
+    From:
+      name: from
+      in: query
+      description: RFC3339 timestamp
+      schema: { type: string, format: date-time }
+    To:
+      name: to
+      in: query
+      description: RFC3339 timestamp
+      schema: { type: string, format: date-time }
+
+  responses:
+    ValidationError:
+      description: Request failed validation
+      content:
+        application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } }
+    Unauthorized:
+      description: Missing/invalid credentials or token
+      content:
+        application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } }
+    NotFound:
+      description: Resource not found (or not owned by the caller)
+      content:
+        application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } }
+    Conflict:
+      description: Resource already exists
+      content:
+        application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } }
+    TooManyRequests:
+      description: Rate limited
+      content:
+        application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } }
+
+  schemas:
+    ErrorEnvelope:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            fields: { type: object, additionalProperties: { type: string } }
+
+    RegisterRequest:
+      type: object
+      required: [full_name, email, phone, password]
+      properties:
+        full_name: { type: string, minLength: 2, maxLength: 150 }
+        email: { type: string, format: email }
+        phone: { type: string, description: "E.164 format, e.g. +2348012345678" }
+        password: { type: string, minLength: 8, maxLength: 72 }
+
+    VerifyOTPRequest:
+      type: object
+      required: [user_id, code]
+      properties:
+        user_id: { type: string, format: uuid }
+        code: { type: string, pattern: "^[0-9]{6}$" }
+
+    ResendOTPRequest:
+      type: object
+      required: [user_id, purpose]
+      properties:
+        user_id: { type: string, format: uuid }
+        purpose: { type: string, enum: [email_verification, phone_verification] }
+
+    LoginRequest:
+      type: object
+      required: [identifier, password]
+      properties:
+        identifier: { type: string, description: "Email or phone" }
+        password: { type: string }
+
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token: { type: string }
+
+    LogoutRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token: { type: string }
+
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email }
+
+    ResetPasswordRequest:
+      type: object
+      required: [email, code, new_password]
+      properties:
+        email: { type: string, format: email }
+        code: { type: string, pattern: "^[0-9]{6}$" }
+        new_password: { type: string, minLength: 8, maxLength: 72 }
+
+    UpdateProfileRequest:
+      type: object
+      required: [full_name]
+      properties:
+        full_name: { type: string, minLength: 2, maxLength: 150 }
+
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        full_name: { type: string }
+        email: { type: string, format: email }
+        email_verified: { type: boolean }
+        phone: { type: string }
+        phone_verified: { type: boolean }
+        role: { type: string, enum: [user, admin] }
+        created_at: { type: string, format: date-time }
+
+    TokenPair:
+      type: object
+      properties:
+        access_token: { type: string }
+        access_expires_at: { type: string, format: date-time }
+        refresh_token: { type: string }
+        refresh_expires_at: { type: string, format: date-time }
+
+    LoginResponse:
+      type: object
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+        tokens: { $ref: "#/components/schemas/TokenPair" }
+
+    CreateJournalEntryRequest:
+      type: object
+      required: [title, content]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        content: { type: string, maxLength: 20000 }
+
+    UpdateJournalEntryRequest:
+      $ref: "#/components/schemas/CreateJournalEntryRequest"
+
+    JournalEntry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        content: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CreateMoodEntryRequest:
+      type: object
+      required: [score]
+      properties:
+        score: { type: integer, minimum: 1, maximum: 5 }
+        tags: { type: array, items: { type: string, maxLength: 50 }, maxItems: 20 }
+        note: { type: string, maxLength: 2000 }
+
+    MoodEntry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        score: { type: integer }
+        tags: { type: array, items: { type: string } }
+        note: { type: string }
+        created_at: { type: string, format: date-time }
+
+    MoodSummary:
+      type: object
+      properties:
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        entry_count: { type: integer }
+        average_score: { type: number }
+        tag_frequency:
+          type: array
+          items:
+            type: object
+            properties:
+              tag: { type: string }
+              count: { type: integer }
+
+    Level:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: integer }
+        name: { type: string }
+        description: { type: string }
+
+    Lesson:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        level_id: { type: string, format: uuid }
+        title: { type: string }
+        content: { type: string }
+        order_index: { type: integer }
+
+    QuizOption:
+      type: object
+      description: Never includes which option is correct.
+      properties:
+        id: { type: string, format: uuid }
+        text: { type: string }
+
+    QuizQuestion:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        text: { type: string }
+        options: { type: array, items: { $ref: "#/components/schemas/QuizOption" } }
+
+    Quiz:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        lesson_id: { type: string, format: uuid }
+        questions: { type: array, items: { $ref: "#/components/schemas/QuizQuestion" } }
+
+    SubmitQuizRequest:
+      type: object
+      required: [answers]
+      properties:
+        answers:
+          type: object
+          description: question ID -> chosen option ID
+          additionalProperties: { type: string }
+
+    QuizResult:
+      type: object
+      properties:
+        total_questions: { type: integer }
+        correct_answers: { type: integer }
+        score_percent: { type: number }
+
+    Badge:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        icon_key: { type: string }
+
+    CompleteLessonResult:
+      type: object
+      properties:
+        lesson: { $ref: "#/components/schemas/Lesson" }
+        level_completed: { type: boolean }
+        badge_awarded:
+          allOf: [{ $ref: "#/components/schemas/Badge" }]
+          nullable: true
+
+    LevelProgress:
+      type: object
+      properties:
+        level: { $ref: "#/components/schemas/Level" }
+        total_lessons: { type: integer }
+        completed_lessons: { type: integer }
+        badge_earned: { type: boolean }
+
+    # Generic response envelope wrappers, spelled out per payload type
+    # since OpenAPI 3.0 has no first-class generics.
+    EnvelopeOf_User:
+      type: object
+      properties: { data: { $ref: "#/components/schemas/User" } }
+    EnvelopeOf_LoginResponse:
+      type: object
+      properties: { data: { $ref: "#/components/schemas/LoginResponse" } }
+    EnvelopeOf_TokenPair:
+      type: object
+      properties: { data: { $ref: "#/components/schemas/TokenPair" } }
+    EnvelopeOf_JournalEntry:
+      type: object
+      properties: { data: { $ref: "#/components/schemas/JournalEntry" } }
+    PagedEnvelopeOf_JournalEntry:
+      type: object
+      properties:
+        data: { type: array, items: { $ref: "#/components/schemas/JournalEntry" } }
+        meta:
+          type: object
+          properties: { total: { type: integer }, limit: { type: integer }, offset: { type: integer } }
+    EnvelopeOf_MoodEntry:
+      type: object
+      properties: { data: { $ref: "#/components/schemas/MoodEntry" } }
+    PagedEnvelopeOf_MoodEntry:
+      type: object
+      properties:
+        data: { type: array, items: { $ref: "#/components/schemas/MoodEntry" } }
+        meta:
+          type: object
+          properties: { total: { type: integer }, limit: { type: integer }, offset: { type: integer } }
+    EnvelopeOf_MoodSummary:
+      type: object
+      properties: { data: { $ref: "#/components/schemas/MoodSummary" } }
+    EnvelopeOf_LevelList:
+      type: object
+      properties: { data: { type: array, items: { $ref: "#/components/schemas/Level" } } }
+    EnvelopeOf_LessonList:
+      type: object
+      properties: { data: { type: array, items: { $ref: "#/components/schemas/Lesson" } } }
+    EnvelopeOf_Lesson:
+      type: object
+      properties: { data: { $ref: "#/components/schemas/Lesson" } }
+    EnvelopeOf_Quiz:
+      type: object
+      properties: { data: { $ref: "#/components/schemas/Quiz" } }
+    EnvelopeOf_QuizResult:
+      type: object
+      properties: { data: { $ref: "#/components/schemas/QuizResult" } }
+    EnvelopeOf_CompleteLessonResult:
+      type: object
+      properties: { data: { $ref: "#/components/schemas/CompleteLessonResult" } }
+    EnvelopeOf_LevelProgressList:
+      type: object
+      properties: { data: { type: array, items: { $ref: "#/components/schemas/LevelProgress" } } }
+    EnvelopeOf_BadgeList:
+      type: object
+      properties: { data: { type: array, items: { $ref: "#/components/schemas/Badge" } } }
