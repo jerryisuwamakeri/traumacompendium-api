@@ -33,6 +33,7 @@ type Dependencies struct {
 	Learning  *handler.LearningHandler
 	SafeReach *handler.SafeReachHandler
 	Community *handler.CommunityHandler
+	Billing   *handler.BillingHandler
 	Health    *handler.HealthHandler
 }
 
@@ -63,6 +64,7 @@ func New(deps Dependencies) *gin.Engine {
 	registerLearningRoutes(api, deps)
 	registerSafeReachRoutes(api, deps)
 	registerCommunityRoutes(api, deps)
+	registerBillingRoutes(api, deps)
 
 	return r
 }
@@ -172,4 +174,18 @@ func registerCommunityRoutes(api *gin.RouterGroup, deps Dependencies) {
 	admin.Use(middleware.RequireAuth(deps.JWT), middleware.RequireRole("admin"))
 	admin.GET("/reports", deps.Community.ListOpenReports)
 	admin.POST("/reports/:id/resolve", deps.Community.ResolveReport)
+}
+
+func registerBillingRoutes(api *gin.RouterGroup, deps Dependencies) {
+	billing := api.Group("/billing")
+
+	// Unauthenticated — Paystack calls this directly. Authenticity
+	// comes entirely from the signature BillingHandler.Webhook verifies,
+	// not from any session; registered before RequireAuth is attached
+	// to the group below, so this one route alone skips it.
+	billing.POST("/webhook", deps.Billing.Webhook)
+
+	billing.Use(middleware.RequireAuth(deps.JWT))
+	billing.POST("/subscribe", deps.Billing.Subscribe)
+	billing.GET("/subscription", deps.Billing.GetSubscription)
 }
