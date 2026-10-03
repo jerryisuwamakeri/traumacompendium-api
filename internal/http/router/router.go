@@ -67,6 +67,7 @@ func New(deps Dependencies) *gin.Engine {
 	registerCommunityRoutes(api, deps)
 	registerBillingRoutes(api, deps)
 	registerAssistantRoutes(api, deps)
+	registerCertificateRoutes(api, deps)
 
 	return r
 }
@@ -133,6 +134,15 @@ func registerLearningRoutes(api *gin.RouterGroup, deps Dependencies) {
 	learning.POST("/quizzes/:id/submit", deps.Learning.SubmitQuiz)
 	learning.GET("/progress", deps.Learning.GetProgress)
 	learning.GET("/badges", deps.Learning.ListBadges)
+	learning.GET("/levels/:id/certificate", deps.Learning.GetCertificate)
+}
+
+func registerCertificateRoutes(api *gin.RouterGroup, deps Dependencies) {
+	certificates := api.Group("/certificates")
+
+	// Public, unauthenticated — proving a certificate is genuine must not
+	// require an account of your own.
+	certificates.GET("/verify/:serial", deps.Learning.VerifyCertificate)
 }
 
 func registerSafeReachRoutes(api *gin.RouterGroup, deps Dependencies) {

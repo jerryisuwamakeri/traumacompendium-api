@@ -1,6 +1,8 @@
 package dto
 
 import (
+	"time"
+
 	"github.com/traumacompendium/backend/internal/domain/learning"
 	"github.com/traumacompendium/backend/internal/service/learningservice"
 )
@@ -147,21 +149,45 @@ func NewBadgeResponses(badges []learning.Badge) []BadgeResponse {
 }
 
 type CompleteLessonResponse struct {
-	Lesson         LessonResponse `json:"lesson"`
-	LevelCompleted bool           `json:"level_completed"`
-	BadgeAwarded   *BadgeResponse `json:"badge_awarded,omitempty"`
+	Lesson            LessonResponse `json:"lesson"`
+	LevelCompleted    bool           `json:"level_completed"`
+	BadgeAwarded      *BadgeResponse `json:"badge_awarded,omitempty"`
+	CertificateIssued bool           `json:"certificate_issued"`
 }
 
 func NewCompleteLessonResponse(r learningservice.CompleteLessonResult) CompleteLessonResponse {
 	resp := CompleteLessonResponse{
-		Lesson:         NewLessonResponse(r.Lesson),
-		LevelCompleted: r.LevelCompleted,
+		Lesson:            NewLessonResponse(r.Lesson),
+		LevelCompleted:    r.LevelCompleted,
+		CertificateIssued: r.CertificateIssued,
 	}
 	if r.BadgeAwarded != nil {
 		b := NewBadgeResponse(*r.BadgeAwarded)
 		resp.BadgeAwarded = &b
 	}
 	return resp
+}
+
+// CertificateVerificationResponse is GET /certificates/verify/:serial's
+// body. When Valid is false every other field is omitted — a wrong or
+// unknown serial should reveal nothing else.
+type CertificateVerificationResponse struct {
+	Valid     bool       `json:"valid"`
+	UserName  string     `json:"user_name,omitempty"`
+	LevelName string     `json:"level_name,omitempty"`
+	IssuedAt  *time.Time `json:"issued_at,omitempty"`
+}
+
+func NewCertificateVerificationResponse(r learningservice.CertificateVerification) CertificateVerificationResponse {
+	if !r.Valid {
+		return CertificateVerificationResponse{Valid: false}
+	}
+	return CertificateVerificationResponse{
+		Valid:     true,
+		UserName:  r.UserName,
+		LevelName: r.LevelName,
+		IssuedAt:  &r.IssuedAt,
+	}
 }
 
 type LevelProgressResponse struct {

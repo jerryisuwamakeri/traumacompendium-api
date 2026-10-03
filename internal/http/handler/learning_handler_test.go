@@ -12,11 +12,18 @@ import (
 
 	"github.com/traumacompendium/backend/internal/config"
 	"github.com/traumacompendium/backend/internal/domain/learning"
+	"github.com/traumacompendium/backend/internal/domain/user"
 	"github.com/traumacompendium/backend/internal/http/middleware"
 	"github.com/traumacompendium/backend/internal/pkg/jwtutil"
 	"github.com/traumacompendium/backend/internal/service/learningservice"
 	"github.com/traumacompendium/backend/internal/testsupport/fakes"
 )
+
+// testUserID is the subject every authedRequest in this file signs its
+// JWT for — seeded into the fake user repo so GetCertificate/
+// VerifyCertificate (which both need a FullName to render) have
+// someone to look up.
+const testUserID = "user-1"
 
 // level2LessonID is a fixture lesson under a level with Number: 2 —
 // used by the premium-gating tests. Everything else in this fixture
@@ -48,8 +55,11 @@ func newTestLearningRouter(premium bool) (*gin.Engine, *jwtutil.Manager, string,
 	content.Lessons[level2LessonID] = learning.Lesson{ID: level2LessonID, LevelID: level2ID, Title: "Lesson 2", OrderIndex: 1}
 	content.Quizzes[level2LessonID] = learning.Quiz{ID: "quiz-2", LessonID: level2LessonID}
 
+	users := fakes.NewUserRepo()
+	users.Seed(&user.User{ID: testUserID, FullName: "Ada Lovelace", Email: "ada@example.com", Phone: "+1000000001"})
+
 	h := NewLearningHandler(
-		learningservice.New(content, progress, fakes.NewLearningAudioRepo(), &fakes.TTSSynthesizer{}),
+		learningservice.New(content, progress, fakes.NewLearningAudioRepo(), fakes.NewCertificateRepo(), users, &fakes.TTSSynthesizer{}),
 		&fakes.PremiumChecker{Premium: premium},
 	)
 
@@ -72,6 +82,9 @@ func newTestLearningRouter(premium bool) (*gin.Engine, *jwtutil.Manager, string,
 	group.POST("/quizzes/:id/submit", h.SubmitQuiz)
 	group.GET("/progress", h.GetProgress)
 	group.GET("/badges", h.ListBadges)
+	group.GET("/levels/:id/certificate", h.GetCertificate)
+
+	r.GET("/certificates/verify/:serial", h.VerifyCertificate)
 
 	return r, jwt, lessonID, correctOptionID
 }
@@ -289,4 +302,119 @@ func TestLearningLevels_MetadataStaysVisible_WithoutPremium(t *testing.T) {
 	if !strings.Contains(w.Body.String(), "Self-Awareness") {
 		t.Error("level 2's metadata is missing from the free roadmap listing")
 	}
+}
+
+func TestLearningCertificate_WithoutPremium_402(t *testing.T) {
+	r, jwt, lessonID, _ := newTestLearningRouter(false)
+
+	// Complete the (free) level first so a 402 can't be mistaken for a 404.
+	r.ServeHTTP(httptest.NewRecorder(), authedRequest(t, jwt, testUserID, http.MethodPost, "/learning/lessons/"+lessonID+"/complete", nil))
+
+	req := authedRequest(t, jwt, testUserID, http.MethodGet, "/learning/levels/level-1/certificate", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusPaymentRequired {
+		t.Errorf("status = %d, want %d, body=%s", w.Code, http.StatusPaymentRequired, w.Body.String())
+	}
+}
+
+func TestLearningCertificate_NotYetEarned_404(t *testing.T) {
+	r, jwt, _, _ := newTestLearningRouter(true)
+
+	req := authedRequest(t, jwt, testUserID, http.MethodGet, "/learning/levels/level-1/certificate", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d, body=%s", w.Code, http.StatusNotFound, w.Body.String())
+	}
+}
+
+func TestLearningCertificate_EarnedWithPremium_RendersPDFAndVerifies(t *testing.T) {
+	r, jwt, lessonID, _ := newTestLearningRouter(true)
+
+	completeReq := authedRequest(t, jwt, testUserID, http.MethodPost, "/learning/lessons/"+lessonID+"/complete", nil)
+	r.ServeHTTP(httptest.NewRecorder(), completeReq)
+
+	req := authedRequest(t, jwt, testUserID, http.MethodGet, "/learning/levels/level-1/certificate", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body=%s", w.Code, http.StatusOK, w.Body.String())
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/pdf" {
+		t.Errorf("Content-Type = %q, want application/pdf", ct)
+	}
+	if !strings.HasPrefix(w.Body.String(), "%PDF-") {
+		t.Errorf("body does not start with the PDF header: %q", w.Body.String()[:20])
+	}
+	if !strings.Contains(w.Body.String(), "Ada Lovelace") {
+		t.Error("rendered certificate is missing the recipient's name")
+	}
+
+	serial := extractCertificateSerial(t, w.Body.String())
+
+	verifyReq := httptest.NewRequest(http.MethodGet, "/certificates/verify/"+serial, nil)
+	verifyW := httptest.NewRecorder()
+	r.ServeHTTP(verifyW, verifyReq)
+
+	if verifyW.Code != http.StatusOK {
+		t.Fatalf("verify status = %d, want %d, body=%s", verifyW.Code, http.StatusOK, verifyW.Body.String())
+	}
+	var verifyResp struct {
+		Data struct {
+			Valid     bool   `json:"valid"`
+			UserName  string `json:"user_name"`
+			LevelName string `json:"level_name"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(verifyW.Body.Bytes(), &verifyResp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !verifyResp.Data.Valid || verifyResp.Data.UserName != "Ada Lovelace" || verifyResp.Data.LevelName != "Beginner" {
+		t.Errorf("verify response = %+v, want valid=true, user=Ada Lovelace, level=Beginner", verifyResp.Data)
+	}
+}
+
+func TestLearningCertificate_VerifyUnknownSerial_ReturnsInvalid(t *testing.T) {
+	r, _, _, _ := newTestLearningRouter(true)
+
+	req := httptest.NewRequest(http.MethodGet, "/certificates/verify/TC-DOESNOTEXIST", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body=%s", w.Code, http.StatusOK, w.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			Valid bool `json:"valid"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Data.Valid {
+		t.Error("Valid = true for an unknown serial, want false")
+	}
+}
+
+// extractCertificateSerial pulls the "TC-XXXX..." token out of the
+// rendered PDF body's "Certificate No. TC-..." line — the PDF response
+// is the only place the test can observe the serial the service minted.
+func extractCertificateSerial(t *testing.T, pdfBody string) string {
+	t.Helper()
+	const marker = "Certificate No. "
+	i := strings.Index(pdfBody, marker)
+	if i == -1 {
+		t.Fatalf("could not find certificate serial marker in PDF body")
+	}
+	rest := pdfBody[i+len(marker):]
+	end := strings.IndexAny(rest, ")\\")
+	if end == -1 {
+		t.Fatalf("could not find end of certificate serial in PDF body")
+	}
+	return rest[:end]
 }

@@ -170,6 +170,44 @@ func (h *LearningHandler) GetLessonAudio(c *gin.Context) {
 	c.Data(http.StatusOK, audio.ContentType, audio.Data)
 }
 
+// GET /api/v1/learning/levels/:id/certificate
+//
+// Unlike lesson content, certificate download is Premium-only for
+// every level, Beginner included — completing a level is free, but the
+// credential itself is a paid perk, so this does not reuse
+// checkLevelAccess's level-1 exemption.
+func (h *LearningHandler) GetCertificate(c *gin.Context) {
+	locale := apphttp.ResolveLocale(c)
+	userID := middleware.UserID(c)
+
+	premium, err := h.billing.IsPremium(c.Request.Context(), userID)
+	if err != nil {
+		apphttp.Fail(c, apperror.NewInternal("could not check subscription").WithCause(err))
+		return
+	}
+	if !premium {
+		apphttp.Fail(c, apperror.NewPaymentRequired("certificates are a Premium feature"))
+		return
+	}
+
+	pdfBytes, err := h.svc.GetCertificate(c.Request.Context(), userID, c.Param("id"), locale)
+	if err != nil {
+		apphttp.Fail(c, err)
+		return
+	}
+	c.Data(http.StatusOK, "application/pdf", pdfBytes)
+}
+
+// GET /api/v1/certificates/verify/:serial — public, unauthenticated.
+func (h *LearningHandler) VerifyCertificate(c *gin.Context) {
+	result, err := h.svc.VerifyCertificate(c.Request.Context(), c.Param("serial"))
+	if err != nil {
+		apphttp.Fail(c, err)
+		return
+	}
+	apphttp.OK(c, dto.NewCertificateVerificationResponse(result))
+}
+
 // checkLevelAccess is the premium gate: Beginner (level 1) stays free so
 // the brief's "roadmap is browsable" holds, but every level beyond it
 // requires an active Premium subscription (see the brief's Premium tier:

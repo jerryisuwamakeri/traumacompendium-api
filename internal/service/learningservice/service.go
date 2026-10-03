@@ -5,29 +5,62 @@ package learningservice
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base32"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
+	"github.com/traumacompendium/backend/internal/domain/certificate"
 	"github.com/traumacompendium/backend/internal/domain/learning"
+	"github.com/traumacompendium/backend/internal/domain/user"
 	"github.com/traumacompendium/backend/internal/notification/tts"
 	"github.com/traumacompendium/backend/internal/pkg/apperror"
 )
 
 type Service struct {
-	content  learning.ContentRepository
-	progress learning.ProgressRepository
-	audio    learning.AudioRepository
-	synth    tts.Synthesizer
-	now      func() time.Time
+	content      learning.ContentRepository
+	progress     learning.ProgressRepository
+	audio        learning.AudioRepository
+	certificates certificate.Repository
+	users        user.Repository
+	synth        tts.Synthesizer
+	now          func() time.Time
 }
 
 func New(
 	content learning.ContentRepository,
 	progress learning.ProgressRepository,
 	audio learning.AudioRepository,
+	certificates certificate.Repository,
+	users user.Repository,
 	synth tts.Synthesizer,
 ) *Service {
-	return &Service{content: content, progress: progress, audio: audio, synth: synth, now: time.Now}
+	return &Service{
+		content:      content,
+		progress:     progress,
+		audio:        audio,
+		certificates: certificates,
+		users:        users,
+		synth:        synth,
+		now:          time.Now,
+	}
+}
+
+// generateCertificateSerial returns a short, unique, human-typeable
+// serial a certificate holder can quote to GET
+// /certificates/verify/:serial. It is not a secret — unlike SafeReach's
+// share tokens — so there's no hashing involved, just enough entropy
+// (10 random bytes, base32-encoded) to make collisions and guessing
+// both impractical.
+func generateCertificateSerial() (string, error) {
+	b := make([]byte, 10)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("learningservice: generate certificate serial: %w", err)
+	}
+	enc := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(b)
+	return "TC-" + strings.ToUpper(enc), nil
 }
 
 func (s *Service) ListLevels(ctx context.Context, locale learning.Locale) ([]learning.Level, error) {

@@ -43,11 +43,21 @@ func newTestService() (*Service, *fakes.LearningContentRepo, *fakes.LearningProg
 }
 
 func newTestServiceWithAudio() (*Service, *fakes.LearningContentRepo, *fakes.LearningProgressRepo, *fakes.LearningAudioRepo, *fakes.TTSSynthesizer) {
+	svc, content, progress, audio, synth, _, _ := newTestServiceWithCertificates()
+	return svc, content, progress, audio, synth
+}
+
+// newTestServiceWithCertificates is used by tests that need to exercise
+// certificate issuance/lookup directly, in addition to everything
+// newTestServiceWithAudio's callers already rely on.
+func newTestServiceWithCertificates() (*Service, *fakes.LearningContentRepo, *fakes.LearningProgressRepo, *fakes.LearningAudioRepo, *fakes.TTSSynthesizer, *fakes.CertificateRepo, *fakes.UserRepo) {
 	content := fakes.NewLearningContentRepo()
 	progress := fakes.NewLearningProgressRepo()
 	audio := fakes.NewLearningAudioRepo()
 	synth := &fakes.TTSSynthesizer{}
-	svc := New(content, progress, audio, synth)
+	certificates := fakes.NewCertificateRepo()
+	users := fakes.NewUserRepo()
+	svc := New(content, progress, audio, certificates, users, synth)
 	svc.now = func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }
-	return svc, content, progress, audio, synth
+	return svc, content, progress, audio, synth, certificates, users
 }

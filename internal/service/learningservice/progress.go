@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 
+	"github.com/google/uuid"
+
+	"github.com/traumacompendium/backend/internal/domain/certificate"
 	"github.com/traumacompendium/backend/internal/domain/learning"
 	"github.com/traumacompendium/backend/internal/pkg/apperror"
 )
@@ -13,9 +16,10 @@ import (
 // celebration exactly once — on the request that actually earns it, not
 // on every subsequent re-completion.
 type CompleteLessonResult struct {
-	Lesson         learning.Lesson
-	LevelCompleted bool
-	BadgeAwarded   *learning.Badge
+	Lesson            learning.Lesson
+	LevelCompleted    bool
+	BadgeAwarded      *learning.Badge
+	CertificateIssued bool
 }
 
 func (s *Service) CompleteLesson(ctx context.Context, userID, lessonID string, locale learning.Locale) (CompleteLessonResult, error) {
@@ -54,6 +58,15 @@ func (s *Service) CompleteLesson(ctx context.Context, userID, lessonID string, l
 		return result, nil
 	}
 
+	// Certificate issuance is independent of whether this level even has
+	// a badge configured (see the ErrBadgeNotFound branch below) — it
+	// runs unconditionally once the level is complete.
+	issued, err := s.issueCertificateIfNeeded(ctx, userID, lesson.LevelID)
+	if err != nil {
+		return CompleteLessonResult{}, err
+	}
+	result.CertificateIssued = issued
+
 	badge, err := s.content.FindBadgeByLevel(ctx, lesson.LevelID, locale)
 	if err != nil {
 		if errors.Is(err, learning.ErrBadgeNotFound) {
@@ -78,6 +91,38 @@ func (s *Service) CompleteLesson(ctx context.Context, userID, lessonID string, l
 	result.BadgeAwarded = &badge
 
 	return result, nil
+}
+
+// issueCertificateIfNeeded mints a certificate the first time a user
+// completes a level, mirroring AwardBadge's idempotent
+// check-then-create: re-completing an already-finished level (possible
+// if a lesson is ever un-completed and redone) must not mint a second
+// certificate or serial for the same user/level pair.
+func (s *Service) issueCertificateIfNeeded(ctx context.Context, userID, levelID string) (bool, error) {
+	_, err := s.certificates.FindByUserAndLevel(ctx, userID, levelID)
+	if err == nil {
+		return false, nil
+	}
+	if !errors.Is(err, certificate.ErrNotFound) {
+		return false, apperror.NewInternal("could not check certificate").WithCause(err)
+	}
+
+	serial, err := generateCertificateSerial()
+	if err != nil {
+		return false, apperror.NewInternal("could not issue certificate").WithCause(err)
+	}
+
+	cert := &certificate.Certificate{
+		ID:       uuid.NewString(),
+		UserID:   userID,
+		LevelID:  levelID,
+		Serial:   serial,
+		IssuedAt: s.now(),
+	}
+	if err := s.certificates.Create(ctx, cert); err != nil {
+		return false, apperror.NewInternal("could not issue certificate").WithCause(err)
+	}
+	return true, nil
 }
 
 func userOwnsBadge(ctx context.Context, progress learning.ProgressRepository, userID, badgeID string) (bool, error) {

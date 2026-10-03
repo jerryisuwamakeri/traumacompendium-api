@@ -104,6 +104,7 @@ func buildServer(cfg *config.Config, log zerolog.Logger, db *sql.DB, redisClient
 	subscriptionRepo := mysql.NewSubscriptionRepository(db)
 	webhookEventRepo := mysql.NewWebhookEventRepository(db)
 	assistantRepo := mysql.NewAssistantRepository(db)
+	certificateRepo := mysql.NewCertificateRepository(db)
 
 	jwtManager := jwtutil.NewManager(cfg.JWT)
 	emailSender := email.New(cfg.SMTP, log)
@@ -118,7 +119,7 @@ func buildServer(cfg *config.Config, log zerolog.Logger, db *sql.DB, redisClient
 	userSvc := userservice.New(userRepo)
 	journalSvc := journalservice.New(journalRepo)
 	moodSvc := moodservice.New(moodRepo)
-	learningSvc := learningservice.New(learningContentRepo, learningProgressRepo, learningAudioRepo, ttsSynth)
+	learningSvc := learningservice.New(learningContentRepo, learningProgressRepo, learningAudioRepo, certificateRepo, userRepo, ttsSynth)
 	safeReachSvc := safereachservice.New(
 		safeReachContactRepo, safeReachAlertRepo, deviceTokenRepo,
 		smsSender, emailSender, pushSender, publisher,
