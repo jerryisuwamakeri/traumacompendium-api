@@ -76,6 +76,7 @@ func truncateAll(t *testing.T, db *sql.DB) {
 		"TRUNCATE TABLE subscriptions",
 		"TRUNCATE TABLE assistant_messages",
 		"TRUNCATE TABLE assistant_conversations",
+		"TRUNCATE TABLE certificates",
 		"TRUNCATE TABLE users",
 		"SET FOREIGN_KEY_CHECKS = 1",
 	} {
